@@ -1,19 +1,16 @@
 # Scaffold-specific files (not copied to new projects)
-# These are tracked by git but excluded from copier template
-.copier/
-.copier-answers.yml.tmpl
-copier.yml
-AGENTS.md
-docs/
-tests/
-SKILLS.md
-BANNED-AGENT-BEHAVIORS.md
-PROGRESS.md
-README.md
-pyproject.toml
-package.json
-LICENSE
-.sisyphus/
+/.copier/
+/.copier-answers.yml.tmpl
+/copier.yml
+/AGENTS.md
+/docs/agents-scaffold-specific.md
+/PROGRESS.md
+/README.md
+/pyproject.toml
+/package.json
+/tests/
+/.sisyphus/
+/LICENSE
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
