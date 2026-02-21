@@ -1,0 +1,23 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+echo "Running Guardian scan..."
+python scripts/guardian.py --level security
+GUARDIAN_EXIT=$?
+
+if [ $GUARDIAN_EXIT -ne 0 ]; then
+    echo "Guardian scan failed. Please fix the issues above."
+    exit 1
+fi
+
+echo "Running Audit Agent..."
+python scripts/audit_agent.py --mode shadow
+AUDIT_EXIT=$?
+
+if [ $AUDIT_EXIT -ne 0 ]; then
+    echo "Audit failed. Please review the issues."
+    exit 1
+fi
+
+echo "All checks passed"
+exit 0

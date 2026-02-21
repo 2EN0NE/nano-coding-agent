@@ -1,0 +1,42 @@
+FROM mirror.gcr.io/library/python:3.12-slim
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    CI=true \
+    GIT_TERMINAL_PROMPT=0 \
+    PIP_NO_INPUT=1 \
+    HOME=/home/sandbox
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    curl \
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install uv for Python package management
+RUN pip install --no-input uv
+
+# Install OpenCode CLI
+RUN curl -fsSL https://github.com/anomalyco/opencode/releases/download/v1.2.6/opencode-linux-arm64.tar.gz -o /tmp/opencode.tar.gz \
+    && tar -xzf /tmp/opencode.tar.gz -C /tmp \
+    && mv /tmp/opencode /usr/local/bin/ \
+    && chmod +x /usr/local/bin/opencode \
+    && rm -rf /tmp/opencode.tar.gz
+
+# Install project dependencies via uv
+RUN uv pip install --system copier semgrep deepeval pytest black ruff
+
+# Create sandbox user
+RUN groupadd -r sandbox && useradd -r -g sandbox -s /bin/bash -m sandbox
+
+WORKDIR /workspace
+RUN chown -R sandbox:sandbox /workspace
+
+# Create required directories
+RUN mkdir -p /home/sandbox/.local/share/opencode && chown -R sandbox:sandbox /home/sandbox
+
+USER sandbox
+
+ENV MINIMAX_API_KEY="your-api-key-here"
+ENV OPENAI_API_KEY=""
+ENV ANTHROPIC_API_KEY=""
+ENV KIMI_API_KEY=""

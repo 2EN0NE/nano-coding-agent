@@ -1,2 +1,48 @@
-# my-ai-coding-scaffold
-自用AI项目脚手架
+# {{project_name}}
+
+AI Coding项目 - 基于AICoding脚手架生成。
+
+## 功能特性
+
+{% if enable_deepeval %}
+- **持续评估工作流**: 基于DeepEval的LLM输出质量评估
+{% endif %}
+{% if audit_level != 'lax' %}
+- **影子审计**: commit前自动运行Guardian和Audit Agent
+{% endif %}
+- **多语言支持**: {{project_type}}
+- **Docker隔离**: 安全的沙箱执行环境
+
+## 快速开始
+
+### 1. 配置环境
+
+```bash
+# 复制环境配置
+cp .env.docker.example .env.docker
+# 编辑填入你的 API Key
+```
+
+### 2. 启动Docker环境（可选）
+
+```bash
+docker-compose up -d --build
+docker exec -it {{project_name}}-sandbox bash
+```
+
+### 3. 启用Git钩子（可选）
+
+```bash
+cp .husky/pre-commit .git/hooks/
+chmod +x .git/hooks/pre-commit
+```
+
+## 开发规范
+
+详见 [AGENTS.md](./AGENTS.md)
+
+## 更新模板
+
+```bash
+copier update .
+```
