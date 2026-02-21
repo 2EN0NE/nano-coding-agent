@@ -158,11 +158,22 @@ opencode
 如采用任务领取模式，参考以下流程：
 
 1. 领取任务：原子操作，从任务队列获取任务
-2. 创建工作区（可选）
+2. 创建工作区
 
-- git worktree add -b task/xxx ../worktrees/task-xxx
-- 创建隔离的 data/ 目录（实验数据库）
-- 分配专属端口
+> **强烈建议使用 git worktree 创建独立工作区**，原因：
+> - **隔离性**：避免多任务同时修改同一代码库导致的冲突
+> - **并行性**：可同时在多个worktree中并行处理不同任务
+> - **安全性**：任务失败不影响主分支
+> - **可清理性**：任务完成后可一键删除，不留残留
+
+```bash
+# 创建独立工作区
+git worktree add -b task/xxx ../worktrees/task-xxx
+cd ../worktrees/task-xxx
+
+# 或者使用 OpenCode 的 worktree_create 命令
+opencode --create-worktree -b task/xxx
+```
 
 3. 实现功能：在隔离环境中工作
 4. 提交代码：git commit 在任务分支
@@ -171,4 +182,26 @@ opencode
 6. 自动合并到 main
 7. 标记完成
 8. 清理
+
+```bash
+# 任务完成后清理
+git worktree remove ../worktrees/task-xxx
+git branch -D task/xxx
+```
+
 9. 经验沉淀：在 PROGRESS.md 记录经验教训
+
+### Git Hook 安装
+
+> **必须安装**：Git钩子需要手动安装到 `.git/hooks/` 目录
+
+```bash
+# 安装pre-commit钩子
+cp .husky/pre-commit .git/hooks/
+chmod +x .git/hooks/pre-commit
+```
+
+安装后，每次 `git commit` 会自动运行：
+1. **Guardian扫描** - Semgrep安全扫描
+2. **Audit Agent审计** - LLM逻辑审查
+3. **阻塞问题** - 阻止commit，需修复
