@@ -113,6 +113,37 @@
 
 ---
 
+### 9. read_task_beads
+
+**用途**: 从 bd (Beads) 读取任务记忆
+
+**触发**: 需要接续工作时、开始新会话时
+
+**行为**:
+- 读取指定任务 ID 的详情
+- 按当前分支过滤任务
+- 列出 ready 状态的任务（无阻塞）
+- 支持参数: `--task-id`, `--current-branch`, `--ready`
+
+**安装**: 运行 `scripts/install_beads_skills.sh`
+
+---
+
+### 10. write_task_checkpoint
+
+**用途**: 将当前思考存入 bd，防止下次会话"失忆"
+
+**触发**: OpenCode 结束本次会话前
+
+**行为**:
+- 创建 message 记录当前进度
+- 更新任务摘要和下一步计划
+- 自动记录时间戳和分支信息
+- 支持参数: `--summary`, `--next-steps`, `--task-id`
+
+**安装**: 运行 `scripts/install_beads_skills.sh`
+---
+
 ## 技能使用规范
 
 ### 加载优先级

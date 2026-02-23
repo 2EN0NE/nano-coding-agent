@@ -48,3 +48,41 @@ LLM输出质量评估，DeepEval集成。
 - [ ] 通过Audit Agent审查
 - [ ] 测试通过
 - [ ] 代码风格一致
+
+
+## Beads 任务记忆
+
+使用 bd (Beads) 进行跨会话任务追踪，防止"失忆":
+
+### 安装
+
+```bash
+# 在项目中安装 beads 技能
+bash scripts/install_beads_skills.sh
+```
+
+### 使用
+
+```bash
+# 读取任务记忆
+python scripts/read_task_beads.py --ready           # 列出就绪任务
+python scripts/read_task_beads.py --current-branch  # 当前分支相关任务
+python scripts/read_task_beads.py --task-id bd-xxx  # 特定任务
+
+# 保存检查点（在结束会话前）
+python scripts/write_task_checkpoint.py \
+  --summary "已完成认证重构，修复登录流程" \
+  --next-steps "连接前端到新API，更新测试"
+
+# 或更新特定任务
+python scripts/write_task_checkpoint.py \
+  --task-id bd-xxx \
+  --summary "..." \
+  --next-steps "..."
+```
+
+### 工作流
+
+1. **会话开始**: 运行 `read_task_beads.py --current-branch` 恢复上下文
+2. **工作中**: 随时可以查看任务详情
+3. **会话结束**: 运行 `write_task_checkpoint.py` 保存进度
