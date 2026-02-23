@@ -1,57 +1,17 @@
 #!/bin/sh
 
-echo "============================================================"
-echo "  Pre-commit Code Quality Checks"
-echo "============================================================"
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-TOTAL_FAILED=0
-RESULTS_FILE="/tmp/precommit_results.json"
+echo "Running hooks..."
+cd "$PROJECT_ROOT" && PYTHONPATH="$PROJECT_ROOT" python .vibe-coding-workflow/hooks/runner.py --hook-type pre_commit
+HOOK_EXIT=$?
 
-echo "[" > "$RESULTS_FILE"
-
-echo ""
-echo "Running Security Scan..."
-python scripts/guardian.py --level security
-if [ $? -ne 0 ]; then
-    TOTAL_FAILED=$((TOTAL_FAILED + 1))
-    echo '  {"name": "Security Scan", "status": "failed"},' >> "$RESULTS_FILE"
-else
-    echo '  {"name": "Security Scan", "status": "passed"},' >> "$RESULTS_FILE"
-fi
-
-echo ""
-echo "Running Code Audit..."
-python scripts/audit_agent.py --mode shadow
-if [ $? -ne 0 ]; then
-    TOTAL_FAILED=$((TOTAL_FAILED + 1))
-    echo '  {"name": "Code Audit", "status": "failed"},' >> "$RESULTS_FILE"
-else
-    echo '  {"name": "Code Audit", "status": "passed"},' >> "$RESULTS_FILE"
-fi
-
-echo ""
-echo "Running Unit Tests..."
-python scripts/test_runner.py --output json > /tmp/test_results.json 2>&1
-TEST_EXIT=$?
-if [ $TEST_EXIT -ne 0 ]; then
-    TOTAL_FAILED=$((TOTAL_FAILED + 1))
-    echo '  {"name": "Unit Tests", "status": "failed"},' >> "$RESULTS_FILE"
-else
-    echo '  {"name": "Unit Tests", "status": "passed"},' >> "$RESULTS_FILE"
-fi
-
-echo '  {"name": "Summary", "status": "completed"}' >> "$RESULTS_FILE"
-echo "]" >> "$RESULTS_FILE"
-
-echo ""
-echo "============================================================"
-
-if [ $TOTAL_FAILED -gt 0 ]; then
-    echo "  ❌ FAILED: $TOTAL_FAILED check(s) failed"
-    echo "============================================================"
+if [ $HOOK_EXIT -ne 0 ]; then
+    echo "Hook validation failed. Please fix the issues above."
     exit 1
-else
-    echo "  ✅ PASSED: All checks completed successfully"
-    echo "============================================================"
-    exit 0
 fi
+
+echo "All hooks passed"
+exit 0

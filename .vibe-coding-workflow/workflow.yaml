@@ -1,0 +1,85 @@
+# Vibe Coding Workflow Configuration
+# This file defines the complete workflow setup for AI-assisted coding projects.
+# It's designed to be used as a template that can be copied to new projects.
+
+# Project metadata
+project:
+  name: "{{ project_name }}"
+  type: "{{ project_type }}"
+  description: "AI-assisted coding project"
+
+# Agent configuration
+agents:
+  # Agent definition files
+  definitions:
+    - agents/AGENTS.md
+    - agents/CONVENTIONS.md
+  
+  # Default agent behavior
+  default_mode: "{{ agent_mode | default('shadow') }}"
+  # shadow: runs in background, non-blocking
+  # full: blocks on findings
+
+# Git hooks configuration
+hooks:
+  # Path to hooks directory
+  path: hooks/
+  
+  # Configuration file
+  config: hooks/hooks.yaml
+  
+  # Enabled git hooks
+  git:
+    enabled:
+      - pre-commit
+      - commit-msg
+    
+    # Hook execution order
+    pre_commit:
+      - guardian
+      - audit
+    
+    commit_msg:
+      - conventional_commit
+
+# Evaluation configuration
+evals:
+  # Path to evals directory
+  path: evals/
+  
+  # DeepEval configuration
+  config: evals/deepeval_config.py
+  
+  # Enable/disable evaluation
+  enabled: {{ enable_deepeval | default(false) }}
+
+# Skills configuration (for future use)
+skills:
+  # Built-in skills are automatically available
+  # Add custom skills here
+  custom: []
+
+# MCP (Model Context Protocol) configuration (for future use)
+mcp:
+  # MCP server configurations
+  servers: []
+
+# Workflow settings
+settings:
+  # Fail on first blocking issue or continue
+  fail_fast: true
+  
+  # Show all results even if blocking
+  show_all_results: false
+  
+  # Enable colored output
+  color: true
+  
+  # Quiet mode (errors only)
+  quiet: false
+
+# Audit level
+audit_level: "{{ audit_level | default('standard') }}"
+# lax: minimal checks
+# standard: normal checks  
+# strict: aggressive checks
