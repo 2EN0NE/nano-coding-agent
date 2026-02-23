@@ -1,13 +1,14 @@
 # Scaffold-specific files (not copied to new projects)
 /.copier/
 /.copier-answers.yml.tmpl
-/copier.yml
+copier.yml
 /docs/agents-scaffold-specific.md
 /PROGRESS.md
 /README.md
 /pyproject.toml
 /package.json
 /tests/
+
 /.sisyphus/
 /LICENSE
 

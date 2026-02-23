@@ -242,6 +242,52 @@ chmod +x .git/hooks/pre-commit
 | 项目知识 | `knowledge/` |
 | 模板源文件 | `docs/` |
 
+## 模板生成目录原则
+
+本脚手架作为 **Copier 模板**，生成的项目的目录结构必须严格遵循以下原则：
+
+### 生成项目允许的根目录文件
+
+```
+.husky/                           # Git 钩子
+.vibe-coding-workflow/             # 工作流配置（集中式）
+AGENTS.md                         # Agent 开发规范
+BACKGROUND.md                     # 项目背景（可选）
+SKILLS.md                         # 可用技能清单
+BANNED-AGENT-BEHAVIORS.md         # 禁止行为规范
+docker-compose.yml                 # Docker 环境配置
+Dockerfile.sandbox                 # 沙箱镜像定义
+.env.docker.example               # 环境变量示例
+```
+
+### 生成项目的禁止规则
+
+- **禁止出现**：docs/, scripts/, knowledge/ （这些是模板源文件，仅存在于模板仓库，不应出现在生成项目中）
+- **禁止出现**：.agents/ （旧结构，应使用 .vibe-coding-workflow/）
+- **禁止出现**：根目录下的 scripts/ （脚本应在 .vibe-coding-workflow/scripts/）
+- **禁止出现**：tests/ （测试目录由生成项目自行创建）
+
+### 动态生成原则
+
+- 共性文件：所有项目必须有的核心文件（.husky, .vibe-coding-workflow, AGENTS.md 等）
+- 个性文件：根据用户选项动态生成（如 enable_deepeval 时生成 evals 配置）
+- 严格匹配：生成结果必须严格匹配上述允许列表，不得包含未配置的额外目录
+
+### 验证方式
+
+在模板仓库运行以下命令验证生成的项目结构：
+```bash
+# 生成临时项目并验证
+git worktree add -b test-generated ../test-gen
+cd ../test-gen
+copier copy <模板路径> . -f --trust
+# 检查目录结构是否符合预期
+ls -la
+cd ..
+git worktree remove test-gen
+```
+
+
 ## 动态文档机制
 
 - `AGENTS.md` 由 `AGENTS.md.tmpl` 通过 `post-commit` hook 自动生成

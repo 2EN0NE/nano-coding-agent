@@ -1,0 +1,27 @@
+# Copier Template Configuration
+# This file configures the Copier template behavior
+
+# Minimum copier version required
+_min_copier_version: "9.0"
+
+# Template questions (default values)
+project_name: "my-ai-project"
+project_type: "python"
+audit_level: "standard"
+enable_deepeval: false
+agent_mode: "shadow"
+
+# Tasks to run after copying template
+# Remove template source files from generated project
+# Using --trust is safe here as this is our own template
+_tasks:
+  - "rm -rf docs/"
+  - "rm -rf scripts/"
+  - "rm -rf knowledge/"
+  - "rm -rf .beads/"
+  - "rm -rf tests/"
+  - "rm -f AGENTS.md.tmpl"
+  - "rm -f LICENSE"
+  - "rm -f README.md"
+  - "rm -f copier.yml"
+  - "rm -rf .pytest_cache/"

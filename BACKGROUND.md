@@ -21,14 +21,27 @@
 
 ### 项目生成流程
 1. Copier 根据用户配置（项目类型、审计级别、评估选项）生成项目
-2. 生成的项目的目录结构：
+2. 生成的项目的目录结构（动态生成，仅包含共性文件和.vibe-coding-workflow/）：
    ```
-   .agents/          # Agent 协作规范
-   scripts/          # 工具脚本（Guardian、Audit、Beads）
-   docs/             # 文档
-   evals/            # DeepEval 配置
-   .husky/           # Git 钩子
+   .husky/                           # Git 钩子（pre-commit, post-commit）
+   .vibe-coding-workflow/             # 工作流配置（集中式）
+   ├── workflow.yaml                 # 统一配置入口
+   ├── agents/                        # Agent 规范
+   ├── hooks/                         # Hook 框架 + 实现
+   ├── evals/                         # 评估配置
+   └── scripts/                       # 辅助脚本
+   AGENTS.md                         # Agent 开发规范（动态生成）
+   BACKGROUND.md                     # 项目背景（可选）
+   SKILLS.md                         # 可用技能清单
+   BANNED-AGENT-BEHAVIORS.md         # 禁止行为规范
+   docker-compose.yml                 # Docker 环境配置
+   Dockerfile.sandbox                 # 沙箱镜像定义
+   .env.docker.example               # 环境变量示例
    ```
+   **动态生成原则**：根目录文件分为两类：
+   - **共性文件**：所有项目必须有的核心文件（.husky, .vibe-coding-workflow, AGENTS.md等）
+   - **个性文件**：根据用户选项动态生成（如enable_deepeval时生成evals配置）
+   - **禁止多余文件**：生成结果必须严格匹配上述列表，不得包含用户未配置的额外目录
 
 ### 审计工作流
 ```
