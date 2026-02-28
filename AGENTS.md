@@ -1,36 +1,32 @@
 # AICoding开发规范
 
-本文档定义AI coding AGENTS的开发规范。内容由以下部分组成：
-
-# AICoding开发规范
-
 本文档定义AI coding AGENTS的开发规范，包含AI Agent协作的共性原则和最佳实践。
 
 ## 核心原则
 
 ### 元原则：阿卡姆剃刀原则 (Minimalism & SNR)
 
-原则： 仅保留必不可少的指令，剔除所有“废话”。
+原则： 仅保留必不可少的指令，剔除所有"废话"。
 实践：
 
 - 控制长度：每条描述建议在150行以内，每个文件控制在1000行以内。如有必要，在实战中进行验证、补充与增强，进行分层分类。
-- 动态调整：移除通用的编程常识（如“编写整洁代码”），只保留AI Coding特有的约束。
+- 动态调整：移除通用的编程常识（如"编写整洁代码"），只保留AI Coding特有的约束。
 - 排除陈腐文档：如果AI Coding实际工作中发现现状与说明文档相违背，询问人类是以当前目标为准——修改文档，还是按文档描述进行Coding。注意这里说的是说明性文档，与项目特色有关，不包含AGENTS.md等最根本性的原则说明文件。
 
-### 行为边界与“防呆”原则 (Guardrails & Boundaries)
+### 行为边界与"防呆"原则 (Guardrails & Boundaries)
 
-原则： 明确告诉 AI “绝对不要做什么”，比告诉它“要做什么”更有效。
+原则： 明确告诉 AI "绝对不要做什么"，比告诉它"要做什么"更有效。
 实践：
 
-- 禁止操作：项目需要禁止的操作集中放到AGENTS_ABORT.md文件下。例如“禁止修改 vendor/ 目录”、“禁止在没有询问的情况下添加重型依赖”、“禁止硬编码颜色”。
-- 安全防线： 明确规定“禁止提交 API Keys 或 Secrets”。 
+- 禁止操作：项目需要禁止的操作集中放到AGENTS_ABORT.md文件下。例如"禁止修改 vendor/ 目录"、"禁止在没有询问的情况下添加重型依赖"、"禁止硬编码颜色"。
+- 安全防线： 明确规定"禁止提交 API Keys 或 Secrets"。 
 
 ### 测试先行原则（TDD First）
 
 原则： 每次行动，先设计与思考如何测试，并先编写测试，在AGENTS.md或README.md中让智能体知道如何测试自己的产出。
 实践：
 
-- 具体的工具链： 提供完整的带参数命令，如 npm test 或 pytest -v，而不是只说“运行测试”。
+- 具体的工具链： 提供完整的带参数命令，如 npm test 或 pytest -v，而不是只说"运行测试"。
 - 环境特异性： 指明具体的包管理器（如 pnpm vs npm），防止生成错误的安装指令。
 - 区分测试类型：单元测试、集成测试、安全测试、性能测试分开设计，放在不同的文件夹下，可用不同命令调起他们，调起的命令写到AGENT知识目录下。必须包含单元测试，强烈建议设计集成测试，如果用户在对话中提出安全、性能问题，则开始设计安全与性能测试。
 
@@ -39,8 +35,8 @@
 原则： 一个真实的代码片段胜过三段文字描述，抽象原则之后最好给出具体举例。
 实践：
 
-- 风格参照： 提供符合项目规范的 UI 组件写法或状态管理模式（如“使用 MUI v3 兼容写法”）。
-- 反模式避坑： 使用表格或列表列出“坏代码 vs 好代码”的对比。 
+- 风格参照： 提供符合项目规范的 UI 组件写法或状态管理模式（如"使用 MUI v3 兼容写法"）。
+- 反模式避坑： 使用表格或列表列出"坏代码 vs 好代码"的对比。 
 
 ### 结构化任务流原则 (Workflow Structure)
 
@@ -48,7 +44,7 @@
 实践：
 
 - Plan-then-Execute： 规定 AI 必须先创建/更新一个 plan.md，并在确认后才开始修改代码。
-- 测试驱动 (TDD)： 明确要求“在编写实现代码前，必须先编写并运行失败的测试用例”。
+- 测试驱动 (TDD)： 明确要求"在编写实现代码前，必须先编写并运行失败的测试用例"。
 - 变更理由： 要求 AI 在建议修改时，简要说明其推理逻辑。
 
 ### 渐进式披露原则 (Progressive Disclosure)
@@ -59,6 +55,15 @@
 - 目录分权： 在**大型项目**中，使用子目录下的 AGENTS.md 存储特定模块的规则。
 - 外部引用： 引导 AI 去读取特定的 .INDEX.md 或 .SUMMARY.md 以获取更深层的架构信息。
 - AGENTS可读：在读取大量代码后所得到的只是，建议知识与经验放到knowledge目录下，方便Agent与人集中查阅。
+
+### 项目背景文档 (BACKGROUND.md)
+
+原则： 每个项目应有独立的背景文档，让 AI Agent 在没有人类语境的情况下也能理解项目的存在理由。
+实践：
+
+- 建议在项目根目录创建 `BACKGROUND.md` 文件
+- 内容应包含：项目愿景、核心约束、业务逻辑、避坑指南
+- Copier 初始化时作为可选项提供，用户可根据需要填写
 
 ## 工作流要求
 
@@ -79,35 +84,6 @@
 - 任务前创建TODO.md，分解原子任务
 - 每轮迭代后更新PROGRESS.md
 - 完成后删除临时文件
-
-#### PROGRESS.md格式
-
-要包含以下板块:
-
-- 当前目标（Active Goal）： 正在处理的核心功能或 Bug。
-- 已完成事项（Done）： 自上次记录以来已提交或测试通过的代码更改。
-- 剩余待办（Remaining Tasks）： 下一步需要执行的具体步骤。
-- 发现与注意事项（Findings & Notes）： 遇到的阻碍、临时决策或需要下个会话注意的 Bug。 
-
-举例如下:
-
-```markdown
-# 进度记录 - [日期]
-
-## 当前状态
-- 正在重构用户登录逻辑，目前已完成 API 路由修改。
-
-## 已完成
-- [x] 创建了 auth-v2 路由文件。
-- [x] 完成了密码加密工具函数的单元测试。
-
-## 待办事项
-- [ ] 连接前端登录表单到新路由。
-- [ ] 更新相关的集成测试。
-
-## 备注
-- 注意：由于 API 变更，需要通知前端团队更新 Header 字段。
-```
 
 ### 经验积累
 
@@ -176,7 +152,7 @@ git worktree add -b task/xxx ../worktrees/task-xxx
 cd ../worktrees/task-xxx
 
 # 或者使用 OpenCode 的 worktree_create 命令
-opencode --create-worktree -b task/xxx
+opencode --create-worktree -b task-xxx
 ```
 
 3. 实现功能：在隔离环境中工作
@@ -209,6 +185,8 @@ chmod +x .git/hooks/pre-commit
 1. **Guardian扫描** - Semgrep安全扫描
 2. **Audit Agent审计** - LLM逻辑审查
 3. **阻塞问题** - 阻止commit，需修复
+
+---
 
 # 脚手架特有规范
 
@@ -248,8 +226,6 @@ chmod +x .git/hooks/pre-commit
 └── scripts/           # 辅助脚本
 ```
 
-详细说明见 [knowledge/directory-structure.md](./knowledge/directory-structure.md)
-
 ## 新功能放置规则
 
 添加新功能时，必须放在正确的目录下：
@@ -260,8 +236,6 @@ chmod +x .git/hooks/pre-commit
 | 自动化检查(Hook) | `.vibe-coding-workflow/hooks/implementations/` |
 | LLM 评估 | `.vibe-coding-workflow/evals/` |
 | 辅助脚本 | `.vibe-coding-workflow/scripts/` |
-| 项目知识 | `knowledge/` |
-| 模板源文件 | `docs/` |
 
 ## 模板生成目录原则
 
@@ -283,37 +257,10 @@ Dockerfile.sandbox                 # 沙箱镜像定义
 
 ### 生成项目的禁止规则
 
-- **禁止出现**：docs/, scripts/, knowledge/ （这些是模板源文件，仅存在于模板仓库，不应出现在生成项目中）
+- **禁止出现**：templates/, scripts/, knowledge/ （这些是模板源文件，仅存在于模板仓库，不应出现在生成项目中）
 - **禁止出现**：.agents/ （旧结构，应使用 .vibe-coding-workflow/）
 - **禁止出现**：根目录下的 scripts/ （脚本应在 .vibe-coding-workflow/scripts/）
 - **禁止出现**：tests/ （测试目录由生成项目自行创建）
-
-### 动态生成原则
-
-- 共性文件：所有项目必须有的核心文件（.husky, .vibe-coding-workflow, AGENTS.md 等）
-- 个性文件：根据用户选项动态生成（如 enable_deepeval 时生成 evals 配置）
-- 严格匹配：生成结果必须严格匹配上述允许列表，不得包含未配置的额外目录
-
-### 验证方式
-
-在模板仓库运行以下命令验证生成的项目结构：
-```bash
-# 生成临时项目并验证
-git worktree add -b test-generated ../test-gen
-cd ../test-gen
-copier copy <模板路径> . -f --trust
-# 检查目录结构是否符合预期
-ls -la
-cd ..
-git worktree remove test-gen
-```
-
-
-## 动态文档机制
-
-- `AGENTS.md` 由 `AGENTS.md.tmpl` 通过 `post-commit` hook 自动生成
-- 每次 `git commit` 后自动运行 `.vibe-coding-workflow/scripts/generate_docs.py`
-- 生成的 `AGENTS.md` 必须提交到版本控制
 
 ## Hook 框架规范
 
@@ -323,20 +270,6 @@ git worktree remove test-gen
 2. 使用 `@hooks.hook()` 装饰器注册
 3. 在 `hooks.yaml` 中配置启用
 4. 在 `workflow.yaml` 的 git 配置中添加执行顺序
-
-示例：
-
-```python
-from hooks import BaseHook, HookResult, hook
-
-@hook(enabled=True, timeout=60)
-class MyHook(BaseHook):
-    name = "my_hook"
-    description = "My custom hook"
-    
-    def run(self, context):
-        return HookResult(name=self.name, success=True)
-```
 
 ## 配置文件说明
 
@@ -349,4 +282,3 @@ class MyHook(BaseHook):
 
 - 工作流 Python 依赖：`hooks/requirements.txt`
 - 项目级依赖：不在此管理，由具体项目决定
-
