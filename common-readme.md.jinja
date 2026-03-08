@@ -1,3 +1,18 @@
+# {{project_name}}
+
+AI Coding项目 - 基于AICoding脚手架生成。
+
+## 功能特性
+
+{% if enable_deepeval %}
+- **持续评估工作流**: 基于DeepEval的LLM输出质量评估
+{% endif %}
+{% if audit_level != 'lax' %}
+- **影子审计**: commit前自动运行Guardian和Audit Agent
+{% endif %}
+- **多语言支持**: {{project_type}}
+- **Docker隔离**: 安全的沙箱执行环境
+
 ## 快速开始
 
 ### 1. 配置环境
