@@ -3,4 +3,6 @@
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-cd "$PROJECT_ROOT" && python .vibe-coding-workflow/scripts/generate_docs.py
+cd "$PROJECT_ROOT"
+
+echo "Post-commit hooks completed."

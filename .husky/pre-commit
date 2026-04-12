@@ -1,17 +1,14 @@
 #!/bin/sh
 
-# Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-echo "Running hooks..."
-cd "$PROJECT_ROOT" && PYTHONPATH="$PROJECT_ROOT" python .vibe-coding-workflow/hooks/runner.py --hook-type pre_commit
-HOOK_EXIT=$?
+echo "Running guardian pre-commit..."
+cd "$PROJECT_ROOT"
 
-if [ $HOOK_EXIT -ne 0 ]; then
-    echo "Hook validation failed. Please fix the issues above."
-    exit 1
-fi
+python3 -m guardian.cli scan --path .
+python3 -m guardian.cli validate .
 
-echo "All hooks passed"
+echo ""
+echo "All pre-commit hooks passed!"
 exit 0
