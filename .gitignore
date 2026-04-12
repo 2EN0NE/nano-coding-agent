@@ -1,13 +1,10 @@
-# Scaffold-specific files (not copied to new projects)
+# Legacy template exceptions removed during refactor
 /.copier/
 /.copier-answers.yml.tmpl
 copier.yml
 /docs/agents-scaffold-specific.md
 /PROGRESS.md
-/README.md
-/pyproject.toml
 /package.json
-/tests/
 
 /.sisyphus/
 /LICENSE

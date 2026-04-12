@@ -1,48 +1,49 @@
-# {{project_name}}
+# AI Coding Guardian
 
-AI Coding项目 - 基于AICoding脚手架生成。
+Resident principle guardian for AI-assisted coding projects. Enforces `AGENTS.md` discipline through lightweight CLI tooling and Git hooks.
 
-## 功能特性
-
-{% if enable_deepeval %}
-- **持续评估工作流**: 基于DeepEval的LLM输出质量评估
-{% endif %}
-{% if audit_level != 'lax' %}
-- **影子审计**: commit前自动运行Guardian和Audit Agent
-{% endif %}
-- **多语言支持**: {{project_type}}
-- **Docker隔离**: 安全的沙箱执行环境
-
-## 快速开始
-
-### 1. 配置环境
+## Install
 
 ```bash
-# 复制环境配置
-cp .env.docker.example .env.docker
-# 编辑填入你的 API Key
+pip install .
 ```
 
-### 2. 启动Docker环境（可选）
+## Commands
+
+### `guardian install <project>`
+Install the pre-commit hook and bootstrap a `principles/` directory into a Git repository.
 
 ```bash
-docker-compose up -d --build
-docker exec -it {{project_name}}-sandbox bash
+guardian install .
 ```
 
-### 3. 启用Git钩子（可选）
+### `guardian validate <project>`
+Validate that a project satisfies baseline governance rules:
+- `AGENTS.md` exists and contains `## 基础原则`
+- No forbidden root directories
+- Source files do not exceed 1000 lines
+- Tests are present
+
+### `guardian merge --principles <file> --target <AGENTS.md>`
+Merge principle blocks from a source markdown file into an existing `AGENTS.md`, deduplicating by semantic similarity.
 
 ```bash
-cp .husky/pre-commit .git/hooks/
-chmod +x .git/hooks/pre-commit
+guardian merge --principles principles/core.md --target AGENTS.md
 ```
 
-## 开发规范
-
-详见 [AGENTS.md](./AGENTS.md)
-
-## 更新模板
+### `guardian scan --path <project>`
+Run security and audit scans over the project. Reports blocking issues, warnings, and suggestions.
 
 ```bash
-copier update .
+guardian scan --path .
 ```
+
+## Philosophy
+
+- **Minimalist**: Zero heavy dependencies; runtime uses only the Python standard library plus PyYAML
+- **Agent-first**: Tools operate on `AGENTS.md` as the single source of truth
+- **Self-governing**: This repository is validated by `guardian validate`
+
+## License
+
+MIT

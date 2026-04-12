@@ -2,9 +2,11 @@
 
 本文档定义AI coding AGENTS的开发规范，包含AI Agent协作的共性原则和最佳实践。
 
+> 本项目由 `guardian validate` 进行自我治理。
+
 ## 核心原则
 
-### 元原则：阿卡姆剃刀原则 (Minimalism & SNR)
+### [support] 元原则：阿卡姆剃刀原则 (Minimalism & SNR)
 
 原则： 仅保留必不可少的指令，剔除所有"废话"。
 实践：
@@ -13,7 +15,7 @@
 - 动态调整：移除通用的编程常识（如"编写整洁代码"），只保留AI Coding特有的约束。
 - 排除陈腐文档：如果AI Coding实际工作中发现现状与说明文档相违背，询问人类是以当前目标为准——修改文档，还是按文档描述进行Coding。注意这里说的是说明性文档，与项目特色有关，不包含AGENTS.md等最根本性的原则说明文件。
 
-### 行为边界与"防呆"原则 (Guardrails & Boundaries)
+### [support] 行为边界与"防呆"原则 (Guardrails & Boundaries)
 
 原则： 明确告诉 AI "绝对不要做什么"，比告诉它"要做什么"更有效。
 实践：
@@ -21,7 +23,7 @@
 - 禁止操作：项目需要禁止的操作集中放到AGENTS_ABORT.md文件下。例如"禁止修改 vendor/ 目录"、"禁止在没有询问的情况下添加重型依赖"、"禁止硬编码颜色"。
 - 安全防线： 明确规定"禁止提交 API Keys 或 Secrets"。 
 
-### 测试先行原则（TDD First）
+### [support] 测试先行原则（TDD First）
 
 原则： 每次行动，先设计与思考如何测试，并先编写测试，在AGENTS.md或README.md中让智能体知道如何测试自己的产出。
 实践：
@@ -30,7 +32,7 @@
 - 环境特异性： 指明具体的包管理器（如 pnpm vs npm），防止生成错误的安装指令。
 - 区分测试类型：单元测试、集成测试、安全测试、性能测试分开设计，放在不同的文件夹下，可用不同命令调起他们，调起的命令写到AGENT知识目录下。必须包含单元测试，强烈建议设计集成测试，如果用户在对话中提出安全、性能问题，则开始设计安全与性能测试。
 
-### 示例重于描述原则 (Show, Don't Tell)
+### [suggest] 示例重于描述原则 (Show, Don't Tell)
 
 原则： 一个真实的代码片段胜过三段文字描述，抽象原则之后最好给出具体举例。
 实践：
@@ -38,7 +40,7 @@
 - 风格参照： 提供符合项目规范的 UI 组件写法或状态管理模式（如"使用 MUI v3 兼容写法"）。
 - 反模式避坑： 使用表格或列表列出"坏代码 vs 好代码"的对比。 
 
-### 结构化任务流原则 (Workflow Structure)
+### [suggest] 结构化任务流原则 (Workflow Structure)
 
 原则： 强制要求 AI 在执行前先进行思考与规划。
 实践：
@@ -47,7 +49,7 @@
 - 测试驱动 (TDD)： 明确要求"在编写实现代码前，必须先编写并运行失败的测试用例"。
 - 变更理由： 要求 AI 在建议修改时，简要说明其推理逻辑。
 
-### 渐进式披露原则 (Progressive Disclosure)
+### [suggest] 渐进式披露原则 (Progressive Disclosure)
 
 原则： 不要在根目录的 AGENTS.md 里堆砌所有子模块的细节。
 实践：
@@ -56,14 +58,13 @@
 - 外部引用： 引导 AI 去读取特定的 .INDEX.md 或 .SUMMARY.md 以获取更深层的架构信息。
 - AGENTS可读：在读取大量代码后所得到的只是，建议知识与经验放到knowledge目录下，方便Agent与人集中查阅。
 
-### 项目背景文档 (BACKGROUND.md)
+### [suggest] 项目背景文档 (BACKGROUND.md)
 
 原则： 每个项目应有独立的背景文档，让 AI Agent 在没有人类语境的情况下也能理解项目的存在理由。
 实践：
 
 - 建议在项目根目录创建 `BACKGROUND.md` 文件
 - 内容应包含：项目愿景、核心约束、业务逻辑、避坑指南
-- Copier 初始化时作为可选项提供，用户可根据需要填写
 
 ## 工作流要求
 
@@ -112,7 +113,7 @@
 
 ## Agent协作范式（推荐实践）
 
-以下Docker沙箱环境和任务生命周期是AICoding脚手架的推荐实践，新项目可选择性采用。
+以下Docker沙箱环境和任务生命周期是AICoding的推荐实践，新项目可选择性采用。
 
 ### Docker沙箱环境
 
@@ -188,10 +189,6 @@ chmod +x .git/hooks/pre-commit
 
 ---
 
-# 脚手架特有规范
-
-本文档包含 Vibe Coding 脚手架项目特有的规范，其他项目可根据需要参考。
-
 ## 多环境分支策略
 
 采用四分支环境模型，确保代码质量逐级验证：
@@ -211,74 +208,3 @@ chmod +x .git/hooks/pre-commit
 - 禁止跨环境合并（如DEV直接合并到UAT）
 
 **其他工程复用**：此原则可复制到其他工程使用。
-
-
-## 目录结构原则
-
-本脚手架采用 **集中式工作流目录** 设计：
-
-```
-.vibe-coding-workflow/  # 所有工作流相关配置
-├── workflow.yaml       # 统一配置入口
-├── agents/            # Agent 规范
-├── hooks/             # Hook 框架 + 实现
-├── evals/             # 评估配置
-└── scripts/           # 辅助脚本
-```
-
-## 新功能放置规则
-
-添加新功能时，必须放在正确的目录下：
-
-| 功能 | 目录 |
-|-----|------|
-| Agent 行为规范 | `.vibe-coding-workflow/agents/` |
-| 自动化检查(Hook) | `.vibe-coding-workflow/hooks/implementations/` |
-| LLM 评估 | `.vibe-coding-workflow/evals/` |
-| 辅助脚本 | `.vibe-coding-workflow/scripts/` |
-
-## 模板生成目录原则
-
-本脚手架作为 **Copier 模板**，生成的项目的目录结构必须严格遵循以下原则：
-
-### 生成项目允许的根目录文件
-
-```
-.husky/                           # Git 钩子
-.vibe-coding-workflow/             # 工作流配置（集中式）
-AGENTS.md                         # Agent 开发规范
-BACKGROUND.md                     # 项目背景（可选）
-SKILLS.md                         # 可用技能清单
-BANNED-AGENT-BEHAVIORS.md         # 禁止行为规范
-docker-compose.yml                 # Docker 环境配置
-Dockerfile.sandbox                 # 沙箱镜像定义
-.env.docker.example               # 环境变量示例
-```
-
-### 生成项目的禁止规则
-
-- **禁止出现**：templates/, scripts/, knowledge/ （这些是模板源文件，仅存在于模板仓库，不应出现在生成项目中）
-- **禁止出现**：.agents/ （旧结构，应使用 .vibe-coding-workflow/）
-- **禁止出现**：根目录下的 scripts/ （脚本应在 .vibe-coding-workflow/scripts/）
-- **禁止出现**：tests/ （测试目录由生成项目自行创建）
-
-## Hook 框架规范
-
-新增 Hook 必须：
-
-1. 继承 `hooks.BaseHook` 类
-2. 使用 `@hooks.hook()` 装饰器注册
-3. 在 `hooks.yaml` 中配置启用
-4. 在 `workflow.yaml` 的 git 配置中添加执行顺序
-
-## 配置文件说明
-
-- `workflow.yaml` - 统一配置入口（copier 模板变量在此定义）
-- `hooks/hooks.yaml` - Hook 独立配置
-- `.husky/pre-commit` - Git 提交前检查
-- `.husky/post-commit` - 提交后生成文档
-
-## 依赖管理
-
-- 工作流 Python 依赖：`hooks/requirements.txt`
-- 项目级依赖：不在此管理，由具体项目决定

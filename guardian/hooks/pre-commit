@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -e
+python3 -m guardian.cli scan --path .
+python3 -m guardian.cli validate .

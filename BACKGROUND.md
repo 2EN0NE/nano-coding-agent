@@ -1,64 +1,39 @@
 # Project Background & Context
 
-## 1. Vision (为什么存在)
+## 1. Vision
 
-解决 AI Coding 项目缺乏标准化工程规范和安全保障的问题。主要服务于需要构建安全、可维护 AI 辅助开发环境的工程团队。
+Guardian is a resident agent that enforces AI-coding discipline through lightweight, local tooling. It turns `AGENTS.md` from a static document into an active contract by providing:
+- CLI commands for validation, scanning, and principle merging
+- Git hooks that block commits violating project rules
+- Zero heavy runtime dependencies
 
-本脚手架是 **Copier 模板**，用于生成具有以下特性的新项目：
-- Docker 隔离的开发环境
-- 自动化的安全审计（Guardian + Audit Agent）
-- LLM 输出质量评估（DeepEval）
-- 跨会话任务记忆（Beads）
+## 2. Constraints
 
-## 2. Constraints (约束与底线) - **对 AI 最重要**
+- **Minimal dependencies**: Runtime logic uses only the Python standard library plus PyYAML
+- **Self-hosting**: This repository is validated by `guardian validate`
+- **Safety first**: API Keys and Secrets must never be committed
+- **Atomic commits**: One logical change per commit, green tests after each
 
-- **必须保持零外部依赖**：除 Python/Node 标准库外，核心逻辑不引入额外包
-- **安全第一**：禁止提交 API Keys、Secrets，任何凭证泄露必须阻止
-- **审计不可绕过**：Guardian 和 Audit Agent 是 commit 的强制检查点
-- **原子提交**：每次提交一个逻辑变化，提交后测试必须通过
+## 3. High-Level Logic
 
-## 3. High-Level Logic (核心逻辑)
-
-### 项目生成流程
-1. Copier 根据用户配置（项目类型、审计级别、评估选项）生成项目
-2. 生成的项目的目录结构（动态生成，仅包含共性文件和.vibe-coding-workflow/）：
-   ```
-   .husky/                           # Git 钩子（pre-commit, post-commit）
-   .vibe-coding-workflow/             # 工作流配置（集中式）
-   ├── workflow.yaml                 # 统一配置入口
-   ├── agents/                        # Agent 规范
-   ├── hooks/                         # Hook 框架 + 实现
-   ├── evals/                         # 评估配置
-   └── scripts/                       # 辅助脚本
-   AGENTS.md                         # Agent 开发规范（动态生成）
-   BACKGROUND.md                     # 项目背景（可选）
-   SKILLS.md                         # 可用技能清单
-   BANNED-AGENT-BEHAVIORS.md         # 禁止行为规范
-   docker-compose.yml                 # Docker 环境配置
-   Dockerfile.sandbox                 # 沙箱镜像定义
-   .env.docker.example               # 环境变量示例
-   ```
-   **动态生成原则**：根目录文件分为两类：
-   - **共性文件**：所有项目必须有的核心文件（.husky, .vibe-coding-workflow, AGENTS.md等）
-   - **个性文件**：根据用户选项动态生成（如enable_deepeval时生成evals配置）
-   - **禁止多余文件**：生成结果必须严格匹配上述列表，不得包含用户未配置的额外目录
-
-### 审计工作流
+### Guardian Workflow
 ```
-git commit → pre-commit hook → 
-  ├─ Guardian (Semgrep 静态扫描) → 阻止漏洞/凭证
-  └─ Audit Agent (LLM 逻辑审查) → 警告/建议
+git commit → pre-commit hook →
+  ├─ guardian scan  (security + audit scan)
+  └─ guardian validate (AGENTS.md + project rules)
 ```
 
-### 任务生命周期
+### CLI Lifecycle
 ```
-领取任务 → 创建 worktree → 实现 → 提交 → 合并 → 清理 → 经验沉淀
+guardian install  → copy hook + bootstrap principles/
+guardian validate → check AGENTS.md, forbidden dirs, file length, tests
+guardian merge    → deduplicated principle injection into AGENTS.md
+guardian scan     → Semgrep security + heuristic audit scan
 ```
 
-## 4. Anti-Patterns (避坑指南)
+## 4. Anti-Patterns
 
-- **不要跳过审计**：即使"只是小改动"也必须运行完整审计流程
-- **不要在 commit message 中隐藏问题**：Audit Agent 会检测到
-- **不要删除失败的测试来"通过"测试**：这违反了 TDD 原则
-- **不要硬编码配置**：使用环境变量或配置文件，保持可移植性
-- **不要在生产环境使用沙箱配置**：脚手架的 Docker 配置仅用于开发隔离
+- **Do not skip validation**: Run `guardian validate` before considering a change complete
+- **Do not bury issues in commit messages**: They will surface during review
+- **Do not delete failing tests to pass**: Fix the code or the test, never the signal
+- **Do not hardcode configuration**: Favor env vars or config files
