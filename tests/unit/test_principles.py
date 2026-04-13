@@ -1,7 +1,8 @@
 import math
 import unittest
+from unittest.mock import patch
 
-from guardian.core.principles import (
+from nano_coding.core.principles import (
     cosineSimilarity,
     extractMarkdownSection,
     extractPrincipleBlocks,
@@ -10,6 +11,7 @@ from guardian.core.principles import (
     normalizeTitle,
     parseDocument,
     PrincipleBlock,
+    resolve_principle_tags,
     vectorize,
 )
 
@@ -56,7 +58,9 @@ class TestParseDocument(unittest.TestCase):
 
 class TestExtractPrincipleBlocks(unittest.TestCase):
     def test_extracts_multiple_blocks(self):
-        content = "### Title One\nBody one line 1\nBody one line 2\n\n### Title Two\nBody two"
+        content = (
+            "### Title One\nBody one line 1\nBody one line 2\n\n### Title Two\nBody two"
+        )
         blocks = extractPrincipleBlocks(content)
         self.assertEqual(len(blocks), 2)
         self.assertEqual(blocks[0].title, "Title One")
@@ -90,6 +94,78 @@ class TestNormalizeTitle(unittest.TestCase):
 
     def test_no_prefix_unchanged(self):
         self.assertEqual(normalizeTitle("Plain title"), "Plain title")
+
+    def test_normalize_title_strips_some_variants(self):
+        self.assertEqual(normalizeTitle("[support some] Foo bar"), "Foo bar")
+        self.assertEqual(normalizeTitle("[control some]   Baz"), "Baz")
+        self.assertEqual(normalizeTitle("[control some] 行为边界"), "行为边界")
+
+
+class TestResolvePrincipleTags(unittest.TestCase):
+    def test_resolve_principle_tags_empty_registry_all_suggest(self):
+        incoming = [
+            PrincipleBlock(
+                title="Old Title",
+                body="- 禁止操作：项目需要禁止的操作\n- 安全防线：明确规定",
+            )
+        ]
+        with patch(
+            "nano_coding.core.registry.collect_principle_status",
+            return_value={},
+        ):
+            result = resolve_principle_tags(incoming, "/fake")
+
+        self.assertEqual(result[0].title, "[suggest] Old Title")
+        self.assertIn("[suggest] - 禁止操作：项目需要禁止的操作", result[0].body)
+        self.assertIn("[suggest] - 安全防线：明确规定", result[0].body)
+        self.assertEqual(incoming[0].title, "Old Title")
+        self.assertNotIn("[suggest]", incoming[0].body)
+
+    def test_resolve_principle_tags_support_some(self):
+        registry = {
+            "行为边界": {
+                "禁止操作": {"command_paths": ["cmd"], "in_hooks": False},
+                "安全防线": {"command_paths": [], "in_hooks": False},
+            }
+        }
+        incoming = [
+            PrincipleBlock(
+                title="行为边界",
+                body="- 禁止操作：项目需要...\n- 安全防线：明确规定...",
+            )
+        ]
+        with patch(
+            "nano_coding.core.registry.collect_principle_status",
+            return_value=registry,
+        ):
+            result = resolve_principle_tags(incoming, "/fake")
+
+        self.assertEqual(result[0].title, "[support some] 行为边界")
+        self.assertIn("[support] - 禁止操作：项目需要...", result[0].body)
+        self.assertIn("[suggest] - 安全防线：明确规定...", result[0].body)
+
+    def test_resolve_principle_tags_control(self):
+        registry = {
+            "TDD先行": {
+                "先设计测试": {"command_paths": ["cmd"], "in_hooks": True},
+                "运行测试": {"command_paths": ["cmd2"], "in_hooks": True},
+            }
+        }
+        incoming = [
+            PrincipleBlock(
+                title="TDD先行",
+                body="- 先设计测试：先设计...\n- 运行测试：代码完成后...",
+            )
+        ]
+        with patch(
+            "nano_coding.core.registry.collect_principle_status",
+            return_value=registry,
+        ):
+            result = resolve_principle_tags(incoming, "/fake")
+
+        self.assertEqual(result[0].title, "[control] TDD先行")
+        self.assertIn("[control] - 先设计测试：先设计...", result[0].body)
+        self.assertIn("[control] - 运行测试：代码完成后...", result[0].body)
 
 
 class TestVectorize(unittest.TestCase):
@@ -147,47 +223,62 @@ class TestHasDuplicate(unittest.TestCase):
 
 class TestMergePrinciplesIntoDocument(unittest.TestCase):
     def test_idempotency(self):
-        doc = "## 基础原则\n\nIntro\n\n### Block A\n\nBody A\n"
+        doc = "# Existing doc\n\nSome content.\n"
         incoming = [PrincipleBlock(title="Block A", body="Body A")]
         merged1 = mergePrinciplesIntoDocument(doc, incoming)
         merged2 = mergePrinciplesIntoDocument(merged1, incoming)
         self.assertEqual(merged1, merged2)
 
-    def test_duplicate_basics_uses_first(self):
-        doc = (
-            "Preamble\n\n"
-            "## 基础原则\n"
-            "Intro one\n"
-            "### Block A\n"
-            "Body A\n\n"
-            "## 基础原则\n"
-            "Intro two\n"
-            "### Block B\n"
-            "Body B\n\n"
-            "## Other\n"
-            "Other body\n"
-        )
-        merged = mergePrinciplesIntoDocument(doc, [])
-        self.assertIn("Intro one", merged)
-        self.assertIn("Block A", merged)
-        self.assertNotIn("Intro two", merged)
-        self.assertNotIn("Block B", merged)
-        self.assertIn("## Other", merged)
-
-    def test_creates_new_basics_when_missing(self):
-        doc = "## Other\n\nOther body\n"
+    def test_prepends_generated_block(self):
+        doc = "# Project\n\n## Existing\nBody\n"
         incoming = [PrincipleBlock(title="New Block", body="New body")]
         merged = mergePrinciplesIntoDocument(doc, incoming)
+        lines = merged.split("\n")
+        start_idx = lines.index("<!-- NANO_CODING_GENERATED_START -->")
+        end_idx = lines.index("<!-- NANO_CODING_GENERATED_END -->")
+        existing_header_idx = lines.index("# Project")
+        self.assertLess(end_idx, existing_header_idx)
         self.assertIn("## 基础原则", merged)
         self.assertIn("New Block", merged)
         self.assertIn("New body", merged)
-        self.assertIn("## Other", merged)
+        self.assertIn("## Existing", merged)
 
-    def test_preserves_existing_basics_when_no_missing(self):
-        doc = "## 基础原则\n\nIntro\n\n### Block A\n\nBody A\n"
+    def test_removes_old_block_before_inserting_new(self):
+        old_block = (
+            "<!-- NANO_CODING_GENERATED_START -->\n"
+            "<!-- 以下内容通过 nano-coding 自动生成与维护，请勿手动修改此区域 -->\n\n"
+            "## 基础原则\n\n"
+            "### Old Block\n\nOld body\n\n"
+            "<!-- NANO_CODING_GENERATED_END -->\n\n"
+        )
+        doc = old_block + "# Project\n\nContent.\n"
+        incoming = [PrincipleBlock(title="New Block", body="New body")]
+        merged = mergePrinciplesIntoDocument(doc, incoming)
+        self.assertIn("New Block", merged)
+        self.assertNotIn("Old Block", merged)
+        self.assertIn("# Project", merged)
+        count_start = merged.count("<!-- NANO_CODING_GENERATED_START -->")
+        self.assertEqual(count_start, 1)
+
+    def test_removes_block_when_no_incoming(self):
+        old_block = (
+            "<!-- NANO_CODING_GENERATED_START -->\n"
+            "<!-- 以下内容通过 nano-coding 自动生成与维护，请勿手动修改此区域 -->\n\n"
+            "## 基础原则\n\n"
+            "### Block\n\nBody\n\n"
+            "<!-- NANO_CODING_GENERATED_END -->\n\n"
+        )
+        doc = old_block + "# Project\n"
         merged = mergePrinciplesIntoDocument(doc, [])
+        self.assertNotIn("NANO_CODING_GENERATED_START", merged)
+        self.assertNotIn("## 基础原则", merged)
+        self.assertIn("# Project", merged)
+
+    def test_creates_block_in_empty_doc(self):
+        incoming = [PrincipleBlock(title="Block A", body="Body A")]
+        merged = mergePrinciplesIntoDocument("", incoming)
+        self.assertTrue(merged.startswith("<!-- NANO_CODING_GENERATED_START -->"))
         self.assertIn("## 基础原则", merged)
-        self.assertIn("Intro", merged)
         self.assertIn("Block A", merged)
 
 
