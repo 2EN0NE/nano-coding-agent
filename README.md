@@ -52,6 +52,26 @@ nano-coding principle-review . --check-changes
 
 > `principles/core.md` 中不再包含手动标签；运行 `nano-coding guard merge` 时，系统会根据 `skills/` 目录中各命令的实现与 CI/CD hooks 的集成情况，自动为原则标题和实践条目生成 `[suggest]`、`[support]` 或 `[control]` 等标签。
 
+## CLI架构
+
+### 技能自动发现
+
+`nano-coding` 通过扫描 `skills/` 目录自动注册命令。每个 skill 文件只需暴露一个 `click.Group` 变量 `cli`，无需修改主入口文件即可自动挂载到根 CLI。
+
+### Help自动生成机制
+
+所有命令及参数的展示均通过 Click 框架的装饰器自动生成：
+
+- **命令发现**：`pkgutil.iter_modules()` 运行时扫描 `nano_coding/skills/`
+- **参数列表**：`@click.option()` 和 `@click.argument()` 装饰器自动提取 `--选项名`
+- **帮助文本**：函数 docstring 自动生成命令描述和 Examples
+
+因此，新增技能只需创建 `nano_coding/skills/<name>.py`，定义命令及其 `@click.option()`，运行 `nano-coding --help` 即可自动看到新命令及其所有可用参数。
+
+### 原则标签映射（与 Help 无关）
+
+`@register_practice` 装饰器仅用于 `guard merge` 时计算原则标签（`[support]` / `[control]`），不参与 `--help` 生成。
+
 ## 理念
 
 - **极简**：零重型依赖；运行时仅使用Python标准库和PyYAML

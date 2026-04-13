@@ -2,7 +2,7 @@
 
 本文档定义AI coding AGENTS的开发规范，包含AI Agent协作的共性原则和最佳实践。
 
-> 本项目由 `guardian validate` 进行自我治理。
+> 本项目由 `nano-coding guard validate` 进行自我治理。
 
 ## 核心原则
 
@@ -208,3 +208,36 @@ chmod +x .git/hooks/pre-commit
 - 禁止跨环境合并（如DEV直接合并到UAT）
 
 **其他工程复用**：此原则可复制到其他工程使用。
+
+---
+
+## CLI 技能注册机制（实现细节）
+
+### 命令注册流程
+
+1. **模块扫描**：`cli.py` 使用 `pkgutil.iter_modules(nano_coding.skills.__path__)` 遍历 `skills/` 目录
+2. **动态导入**：对每个模块执行 `importlib.import_module(f"nano_coding.skills.{name}")`
+3. **约定挂载**：检查模块是否有 `cli` 属性且为 `click.Group` 类型，通过 `cli.add_command(group, name=name.replace("_", "-"))` 挂载到根 CLI
+
+### Help 递归展示
+
+根 CLI 使用自定义 `RecursiveHelpGroup(click.Group)` 重写 `format_commands()`：
+
+- **Group 处理**：输出 group 名称和 `short_help`，然后缩进递归输出其子命令
+- **子命令处理**：输出命令名、short_help，以及从 `cmd.get_params(ctx)` 提取的 `[--选项名]` 列表
+- **Leaf Group 特殊处理**：对于无子命令的 group（如 `principle-review`），直接显示 group 名称和其 options
+
+### 参数元数据来源
+
+| 展示内容 | 来源 | 是否自动 |
+|---------|------|----------|
+| 命令路径 | `skills/` 目录结构 | ✅ 扫描发现 |
+| 选项列表 | `@click.option()` / `@click.argument()` | ✅ 装饰器提取 |
+| 帮助文本 | 函数 docstring | ✅ docstring |
+| 原则标签 | `@register_practice` | ❌ 仅用于 merge |
+
+因此，添加新 skill 的完整流程：
+1. 创建 `nano_coding/skills/<skill_name>.py`
+2. 定义 `cli = click.Group()`
+3. 用 `@cli.command()` + `@click.option()` 定义子命令
+4. 运行 `nano-coding --help` 自动可见
