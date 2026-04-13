@@ -8,6 +8,7 @@ from nano_coding.core.installer import install_hooks_and_principles
 from nano_coding.core.principles import (
     extractPrincipleBlocks,
     mergePrinciplesIntoDocument,
+    resolve_principle_tags,
 )
 from nano_coding.core.scanner import (
     get_staged_files,
@@ -93,6 +94,11 @@ def merge(principles: str, target: str) -> None:
     target_content = target_file.read_text(encoding="utf-8")
 
     incoming_blocks = extractPrincipleBlocks(principles_content)
+    target_dir = target_file.parent
+    incoming_blocks = resolve_principle_tags(
+        incoming_blocks,
+        str(target_dir) if target_dir.exists() else None,
+    )
     merged = mergePrinciplesIntoDocument(target_content, incoming_blocks)
 
     target_file.write_text(merged, encoding="utf-8")
