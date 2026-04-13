@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -e
+python3 -m nano_coding.cli guard scan --path .
+python3 -m nano_coding.cli guard validate .

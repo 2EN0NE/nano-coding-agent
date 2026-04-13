@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "aicoding-guardian"
+name = "nano-coding-agent"
 version = "0.1.0"
-description = "Resident AI-coding principle guardian agent"
+description = "AI-assisted coding project governance CLI"
 readme = "README.md"
 requires-python = ">=3.9"
 license = {text = "MIT"}
@@ -24,11 +24,19 @@ classifiers = [
 ]
 
 dependencies = [
+    "click>=8.0",
     "pyyaml>=6.0",
 ]
 
 [project.scripts]
-guardian = "guardian.cli:main"
+nano-coding = "nano_coding.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["nano_coding*"]
+
+[tool.setuptools.package-data]
+nano_coding = ["*.yaml"]
 
 # Runtime code must not depend on dev packages.
 [project.optional-dependencies]
