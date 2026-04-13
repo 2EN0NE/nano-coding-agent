@@ -30,8 +30,8 @@ def cli(ctx, target_dir, check_changes, separate_concerns, length_limit):
 
     Examples:
 
-        $ nano-coding principle-review .
-        $ nano-coding principle-review . --check-changes
+        $ uv run nano-coding principle-review .
+        $ uv run nano-coding principle-review . --check-changes
     """
     if ctx.invoked_subcommand is not None:
         return

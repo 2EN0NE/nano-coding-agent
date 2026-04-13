@@ -3,7 +3,7 @@ import functools
 import importlib
 import os
 import pkgutil
-from typing import Any
+from typing import Any, Optional
 
 import nano_coding.skills
 
@@ -40,7 +40,7 @@ def scan_registry() -> dict[str, dict[str, list[str]]]:
 
 
 def collect_principle_status(
-    target_dir: str | None,
+    target_dir: Optional[str],
 ) -> dict[str, dict[str, dict[str, Any]]]:
     registry = scan_registry()
     hooks_text = ""

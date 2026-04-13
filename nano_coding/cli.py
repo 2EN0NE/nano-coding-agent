@@ -81,6 +81,17 @@ def _register_skills() -> None:
         group = getattr(module, "cli", None)
         if isinstance(group, click.Group):
             cli.add_command(group, name=name.replace("_", "-"))
+            continue
+        commands = getattr(module, "commands", None)
+        if isinstance(commands, (list, tuple, dict)):
+            if isinstance(commands, dict):
+                for cmd_name, cmd in commands.items():
+                    if isinstance(cmd, click.Command):
+                        cli.add_command(cmd, name=cmd_name.replace("_", "-"))
+            else:
+                for cmd in commands:
+                    if isinstance(cmd, click.Command):
+                        cli.add_command(cmd)
 
 
 _register_skills()

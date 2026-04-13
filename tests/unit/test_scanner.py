@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
-from guardian.core.scanner import (
+from nano_coding.core.scanner import (
     get_rules_for_type,
     run_semgrep,
     filter_blocking,
@@ -28,9 +28,21 @@ class TestScannerHelpers(unittest.TestCase):
     def test_filter_blocking(self):
         results = {
             "results": [
-                {"extra": {"severity": "INFO", "message": "info msg"}, "path": "a.py", "start": {"line": 1}},
-                {"extra": {"severity": "ERROR", "message": "error msg"}, "path": "b.py", "start": {"line": 2}},
-                {"extra": {"severity": "WARNING", "message": "warn msg"}, "path": "c.py", "start": {"line": 3}},
+                {
+                    "extra": {"severity": "INFO", "message": "info msg"},
+                    "path": "a.py",
+                    "start": {"line": 1},
+                },
+                {
+                    "extra": {"severity": "ERROR", "message": "error msg"},
+                    "path": "b.py",
+                    "start": {"line": 2},
+                },
+                {
+                    "extra": {"severity": "WARNING", "message": "warn msg"},
+                    "path": "c.py",
+                    "start": {"line": 3},
+                },
             ]
         }
         blocking = filter_blocking(results)
@@ -71,20 +83,32 @@ class TestScannerHelpers(unittest.TestCase):
             name = f.name
         try:
             result = analyze_file(name)
-            self.assertTrue(any("Bare except clause with pass" in w for w in result["warnings"]))
+            self.assertTrue(
+                any("Bare except clause with pass" in w for w in result["warnings"])
+            )
         finally:
             os.unlink(name)
 
 
 class TestRunSecurityScan(unittest.TestCase):
-    @patch("guardian.core.scanner.subprocess.run")
+    @patch("nano_coding.core.scanner.subprocess.run")
     def test_run_security_scan_success(self, mock_run):
-        mock_output = json.dumps({
-            "results": [
-                {"extra": {"severity": "ERROR", "message": "bad pattern"}, "path": "main.py", "start": {"line": 5}},
-                {"extra": {"severity": "INFO", "message": "info"}, "path": "main.py", "start": {"line": 10}},
-            ]
-        })
+        mock_output = json.dumps(
+            {
+                "results": [
+                    {
+                        "extra": {"severity": "ERROR", "message": "bad pattern"},
+                        "path": "main.py",
+                        "start": {"line": 5},
+                    },
+                    {
+                        "extra": {"severity": "INFO", "message": "info"},
+                        "path": "main.py",
+                        "start": {"line": 10},
+                    },
+                ]
+            }
+        )
         mock_run.return_value = MagicMock(stdout=mock_output, stderr="")
         result = run_security_scan("python")
         self.assertEqual(len(result["blocking"]), 1)
@@ -92,13 +116,13 @@ class TestRunSecurityScan(unittest.TestCase):
         self.assertEqual(result["warnings"], [])
         self.assertEqual(result["suggestions"], [])
 
-    @patch("guardian.core.scanner.subprocess.run")
+    @patch("nano_coding.core.scanner.subprocess.run")
     def test_run_security_scan_missing_semgrep(self, mock_run):
         mock_run.side_effect = FileNotFoundError("semgrep not found")
         result = run_security_scan("python")
         self.assertEqual(result["blocking"], [])
         self.assertTrue(
-            any("semgrep" in w.lower() for w in result["warnings"]) 
+            any("semgrep" in w.lower() for w in result["warnings"])
             or any("not found" in w.lower() for w in result["warnings"])
         )
         self.assertEqual(result["suggestions"], [])
@@ -115,7 +139,7 @@ class TestRunAuditScan(unittest.TestCase):
         finally:
             os.unlink(name)
 
-    @patch("guardian.core.scanner.get_staged_files")
+    @patch("nano_coding.core.scanner.get_staged_files")
     def test_run_audit_scan_fallback_to_staged(self, mock_staged):
         with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
             f.write("# TODO\n")

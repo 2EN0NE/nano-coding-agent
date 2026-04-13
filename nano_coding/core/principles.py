@@ -284,13 +284,46 @@ def _removeNanoCodingBlock(content: str) -> str:
     return "\n".join(result)
 
 
+def extractPrincipleBlocksFromDocument(content: str) -> list[PrincipleBlock]:
+    blocks: list[PrincipleBlock] = []
+    lines = content.split("\n")
+    current_title = ""
+    current_body: list[str] = []
+
+    for line in lines:
+        if re.match(r"^#{2,3}\s+", line):
+            if current_title:
+                blocks.append(
+                    PrincipleBlock(
+                        title=current_title,
+                        body="\n".join(current_body).strip(),
+                    )
+                )
+            current_title = re.sub(r"^#{2,3}\s+", "", line).strip()
+            current_body = []
+        else:
+            current_body.append(line)
+
+    if current_title:
+        blocks.append(
+            PrincipleBlock(title=current_title, body="\n".join(current_body).strip())
+        )
+
+    return blocks
+
+
 def mergePrinciplesIntoDocument(doc: str, incoming: list[PrincipleBlock]) -> str:
     cleaned = _removeNanoCodingBlock(doc).strip()
 
-    if not incoming:
+    existing = extractPrincipleBlocksFromDocument(cleaned)
+    unique_incoming = [b for b in incoming if not hasDuplicate(b, existing)]
+
+    if not unique_incoming:
         return cleaned + "\n" if cleaned else ""
 
-    blocks_body = "\n\n".join(f"---\n\n### {b.title}\n\n{b.body}" for b in incoming)
+    blocks_body = "\n\n".join(
+        f"---\n\n### {b.title}\n\n{b.body}" for b in unique_incoming
+    )
     generated_section = (
         f"{NANO_CODING_START}\n"
         f"{NANO_CODING_COMMENT}\n\n"

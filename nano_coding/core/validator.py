@@ -44,6 +44,10 @@ def validate_project(
     project_root: str,
     max_lines: int = 1000,
     check_forbidden_dirs: bool = True,
+    check_agents_abort: bool = False,
+    check_background: bool = False,
+    check_test_separation: bool = False,
+    check_test_commands: bool = False,
 ) -> dict:
     root = Path(project_root).resolve()
     blocking = []
@@ -67,7 +71,9 @@ def validate_project(
 
     pre_commit = root / ".git" / "hooks" / "pre-commit"
     if not pre_commit.exists():
-        warnings.append("Git pre-commit hook is not installed (.git/hooks/pre-commit missing).")
+        warnings.append(
+            "Git pre-commit hook is not installed (.git/hooks/pre-commit missing)."
+        )
     elif not os.access(pre_commit, os.X_OK):
         warnings.append("Git pre-commit hook exists but is not executable.")
 
@@ -117,6 +123,73 @@ def validate_project(
         if line_count > max_lines:
             blocking.append(
                 f"File exceeds {max_lines} lines ({line_count}): {relative}"
+            )
+
+    if check_agents_abort:
+        agents_abort = root / "AGENTS_ABORT.md"
+        banned_behaviors = root / "BANNED-AGENT-BEHAVIORS.md"
+
+        if not agents_abort.exists() and not banned_behaviors.exists():
+            blocking.append("AGENTS_ABORT.md (or BANNED-AGENT-BEHAVIORS.md) not found.")
+        else:
+            existing_file = agents_abort if agents_abort.exists() else banned_behaviors
+            content = existing_file.read_text(encoding="utf-8").strip()
+            if not content:
+                blocking.append(f"{existing_file.name} is empty.")
+
+    if check_background:
+        background_md = root / "BACKGROUND.md"
+        if not background_md.exists():
+            blocking.append("BACKGROUND.md not found in project root.")
+
+    if check_test_separation:
+        unit_dir = root / "tests" / "unit"
+        integration_dir = root / "tests" / "integration"
+
+        if not unit_dir.is_dir():
+            blocking.append(
+                "Missing tests/unit/ directory (required for test type separation)."
+            )
+        if not integration_dir.is_dir():
+            blocking.append(
+                "Missing tests/integration/ directory (required for test type separation)."
+            )
+
+    if check_test_commands:
+        import re
+
+        TEST_COMMAND_PATTERNS = [
+            r"pytest\s+[-\w]",
+            r"npm\s+test",
+            r"yarn\s+test",
+            r"pnpm\s+test",
+            r"cargo\s+test",
+            r"go\s+test",
+            r"mvn\s+test",
+            r"gradle\s+test",
+            r"dotnet\s+test",
+            r"python\s+-m\s+(pytest|unittest)",
+        ]
+
+        readme = root / "README.md"
+        agents = root / "AGENTS.md"
+
+        found_command = False
+        combined_content = ""
+
+        if readme.exists():
+            combined_content += readme.read_text(encoding="utf-8")
+        if agents.exists():
+            combined_content += agents.read_text(encoding="utf-8")
+
+        for pattern in TEST_COMMAND_PATTERNS:
+            if re.search(pattern, combined_content):
+                found_command = True
+                break
+
+        if not found_command:
+            blocking.append(
+                "No specific test commands found in README.md or AGENTS.md. Document commands like 'pytest -v' or 'npm test'."
             )
 
     success = len(blocking) == 0

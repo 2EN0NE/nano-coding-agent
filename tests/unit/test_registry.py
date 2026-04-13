@@ -22,15 +22,9 @@ class TestRegistry(unittest.TestCase):
     def test_stacked_decorators(self) -> None:
         _REGISTRY.clear()
 
-        @register_practice(
-            "Principle A", {"practice_1": ["nano-coding", "guard", "scan"]}
-        )
-        @register_practice(
-            "Principle A", {"practice_2": ["nano-coding", "guard", "validate"]}
-        )
-        @register_practice(
-            "Principle B", {"practice_x": ["nano-coding", "guard", "install"]}
-        )
+        @register_practice("Principle A", {"practice_1": ["nano-coding", "scan"]})
+        @register_practice("Principle A", {"practice_2": ["nano-coding", "validate"]})
+        @register_practice("Principle B", {"practice_x": ["nano-coding", "install"]})
         def my_func():
             return 42
 
@@ -40,13 +34,13 @@ class TestRegistry(unittest.TestCase):
         self.assertEqual(
             _REGISTRY["Principle A"],
             {
-                "practice_1": ["nano-coding", "guard", "scan"],
-                "practice_2": ["nano-coding", "guard", "validate"],
+                "practice_1": ["nano-coding", "scan"],
+                "practice_2": ["nano-coding", "validate"],
             },
         )
         self.assertEqual(
             _REGISTRY["Principle B"],
-            {"practice_x": ["nano-coding", "guard", "install"]},
+            {"practice_x": ["nano-coding", "install"]},
         )
 
     def test_collect_principle_status_mock(self) -> None:
@@ -55,7 +49,7 @@ class TestRegistry(unittest.TestCase):
         @register_practice(
             "Principle A",
             {
-                "practice_1": ["nano-coding", "guard", "scan"],
+                "practice_1": ["nano-coding", "scan"],
                 "practice_2": ["nano-coding", "other", "cmd"],
             },
         )
@@ -65,13 +59,13 @@ class TestRegistry(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             hooks_dir = Path(tmp) / ".git" / "hooks"
             hooks_dir.mkdir(parents=True)
-            (hooks_dir / "pre-commit").write_text("run nano-coding guard scan here\n")
+            (hooks_dir / "pre-commit").write_text("run nano-coding scan here\n")
 
             result = collect_principle_status(target_dir=tmp)
 
         self.assertEqual(
             result["Principle A"]["practice_1"]["command_paths"],
-            ["nano-coding", "guard", "scan"],
+            ["nano-coding", "scan"],
         )
         self.assertTrue(result["Principle A"]["practice_1"]["in_hooks"])
         self.assertEqual(

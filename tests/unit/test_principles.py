@@ -6,6 +6,7 @@ from nano_coding.core.principles import (
     cosineSimilarity,
     extractMarkdownSection,
     extractPrincipleBlocks,
+    extractPrincipleBlocksFromDocument,
     hasDuplicate,
     mergePrinciplesIntoDocument,
     normalizeTitle,
@@ -221,6 +222,26 @@ class TestHasDuplicate(unittest.TestCase):
         self.assertFalse(hasDuplicate(inc, existing, semanticThreshold=0.90))
 
 
+class TestExtractPrincipleBlocksFromDocument(unittest.TestCase):
+    def test_extracts_h2_and_h3(self):
+        content = "## H2 Title\nH2 body\n\n### H3 Title\nH3 body"
+        blocks = extractPrincipleBlocksFromDocument(content)
+        self.assertEqual(len(blocks), 2)
+        self.assertEqual(blocks[0].title, "H2 Title")
+        self.assertEqual(blocks[0].body, "H2 body")
+        self.assertEqual(blocks[1].title, "H3 Title")
+        self.assertEqual(blocks[1].body, "H3 body")
+
+    def test_ignores_h1(self):
+        content = "# H1 Title\nH1 body\n\n### H3 Title\nH3 body"
+        blocks = extractPrincipleBlocksFromDocument(content)
+        self.assertEqual(len(blocks), 1)
+        self.assertEqual(blocks[0].title, "H3 Title")
+
+    def test_empty_content(self):
+        self.assertEqual(extractPrincipleBlocksFromDocument(""), [])
+
+
 class TestMergePrinciplesIntoDocument(unittest.TestCase):
     def test_idempotency(self):
         doc = "# Existing doc\n\nSome content.\n"
@@ -280,6 +301,41 @@ class TestMergePrinciplesIntoDocument(unittest.TestCase):
         self.assertTrue(merged.startswith("<!-- NANO_CODING_GENERATED_START -->"))
         self.assertIn("## 基础原则", merged)
         self.assertIn("Block A", merged)
+
+    def test_skips_duplicate_in_manual_section_by_title(self):
+        doc = (
+            "# Project\n\n"
+            "## 多环境分支策略\n\n"
+            "采用四分支环境模型...\n\n"
+            "## Existing\nBody\n"
+        )
+        incoming = [
+            PrincipleBlock(title="多环境分支策略", body="采用四分支环境模型...")
+        ]
+        merged = mergePrinciplesIntoDocument(doc, incoming)
+        self.assertNotIn("### 多环境分支策略", merged)
+        self.assertIn("## 多环境分支策略", merged)
+        self.assertIn("## Existing", merged)
+
+    def test_skips_duplicate_in_manual_section_with_tags(self):
+        doc = "# Project\n\n## [suggest] 多环境分支策略\n\n采用四分支环境模型...\n"
+        incoming = [
+            PrincipleBlock(title="多环境分支策略", body="采用四分支环境模型...")
+        ]
+        merged = mergePrinciplesIntoDocument(doc, incoming)
+        self.assertNotIn("### 多环境分支策略", merged)
+        self.assertIn("## [suggest] 多环境分支策略", merged)
+
+    def test_keeps_unique_incoming_blocks(self):
+        doc = "# Project\n\n## Existing Manual\n\nExisting body\n"
+        incoming = [
+            PrincipleBlock(title="New Block", body="New body"),
+            PrincipleBlock(title="Existing Manual", body="Different body"),
+        ]
+        merged = mergePrinciplesIntoDocument(doc, incoming)
+        self.assertIn("### New Block", merged)
+        self.assertNotIn("### Existing Manual", merged)
+        self.assertIn("## Existing Manual", merged)
 
 
 if __name__ == "__main__":

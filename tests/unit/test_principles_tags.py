@@ -5,7 +5,7 @@ from unittest.mock import patch
 from click.testing import CliRunner
 
 from nano_coding.core.principles import PrincipleBlock, resolve_principle_tags
-from nano_coding.skills.guard import cli as guard_cli
+from nano_coding.skills.guard import update
 
 
 class TestPrincipleTags(unittest.TestCase):
@@ -135,15 +135,20 @@ class TestPrincipleTags(unittest.TestCase):
         self.assertIn("[support] - 实践B：描述B", body)
         self.assertIn("[suggest] - 实践C：描述C", body)
 
-    def test_merge_command_outputs_tags(self):
+    def test_update_command_outputs_tags(self):
         runner = CliRunner()
-        principles_path = str(
+        source_principles = (
             Path(__file__).resolve().parents[2] / "principles" / "core.md"
         )
 
         with runner.isolated_filesystem():
             agents_path = "AGENTS.md"
             Path(agents_path).write_text("# Project\n\n## 基础原则\nSome rules.\n")
+            principles_dir = Path("principles")
+            principles_dir.mkdir()
+            (principles_dir / "core.md").write_text(
+                source_principles.read_text(encoding="utf-8")
+            )
 
             with patch(
                 "nano_coding.core.registry.collect_principle_status"
@@ -157,16 +162,7 @@ class TestPrincipleTags(unittest.TestCase):
                     },
                     '行为边界与"防呆"原则 (Guardrails & Boundaries)': {},
                 }
-                result = runner.invoke(
-                    guard_cli,
-                    [
-                        "merge",
-                        "--principles",
-                        principles_path,
-                        "--target",
-                        agents_path,
-                    ],
-                )
+                result = runner.invoke(update, ["."])
 
             self.assertEqual(result.exit_code, 0)
             output = Path(agents_path).read_text()

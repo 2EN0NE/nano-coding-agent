@@ -19,46 +19,81 @@ from nano_coding.core.registry import register_practice
 from nano_coding.core.validator import validate_project
 
 
-@click.group()
-def cli() -> None:
-    """项目治理相关命令"""
-    pass
-
-
+@click.command()
+@click.argument("target_dir")
 @register_practice(
     principle='行为边界与"防呆"原则 (Guardrails & Boundaries)',
-    practices={"禁止操作": ["guard", "install"]},
+    practices={"禁止操作": ["install"]},
 )
-@cli.command()
-@click.argument("target_dir")
 def install(target_dir: str) -> None:
     """将pre-commit钩子和基础principles/目录安装到Git仓库中。
 
     Examples:
 
-        $ nano-coding guard install .
+        $ uv run nano-coding install .
     """
     install_hooks_and_principles(target_dir)
 
 
+@click.command()
+@click.argument("target_dir")
+@click.option(
+    "--check-agents-abort",
+    is_flag=True,
+    help="Validate AGENTS_ABORT.md or BANNED-AGENT-BEHAVIORS.md exists and is non-empty.",
+)
+@click.option(
+    "--check-background",
+    is_flag=True,
+    help="Validate BACKGROUND.md exists in project root.",
+)
+@click.option(
+    "--check-test-separation",
+    is_flag=True,
+    help="Validate tests/unit/ and tests/integration/ directories exist.",
+)
+@click.option(
+    "--check-test-commands",
+    is_flag=True,
+    help="Validate README.md or AGENTS.md contains specific test commands.",
+)
 @register_practice(
     principle='行为边界与"防呆"原则 (Guardrails & Boundaries)',
-    practices={"禁止操作": ["guard", "validate"]},
+    practices={"禁止操作": ["validate", "validate --check-agents-abort"]},
+)
+@register_practice(
+    principle="项目背景文档 (BACKGROUND.md)",
+    practices={"创建 BACKGROUND.md": ["validate", "validate --check-background"]},
 )
 @register_practice(
     principle="测试先行原则（TDD First）",
-    practices={"区分测试类型": ["guard", "validate"]},
+    practices={"区分测试类型": ["validate", "validate --check-test-separation"]},
 )
-@cli.command()
-@click.argument("target_dir")
-def validate(target_dir: str) -> None:
+@register_practice(
+    principle="测试先行原则（TDD First）",
+    practices={"具体的工具链": ["validate", "validate --check-test-commands"]},
+)
+def validate(
+    target_dir: str,
+    check_agents_abort: bool,
+    check_background: bool,
+    check_test_separation: bool,
+    check_test_commands: bool,
+) -> None:
     """验证项目是否满足基础治理规则。
 
     Examples:
 
-        $ nano-coding guard validate .
+        $ uv run nano-coding validate .
+        $ uv run nano-coding validate . --check-agents-abort --check-background
     """
-    result = validate_project(target_dir)
+    result = validate_project(
+        target_dir,
+        check_agents_abort=check_agents_abort,
+        check_background=check_background,
+        check_test_separation=check_test_separation,
+        check_test_commands=check_test_commands,
+    )
     for issue in result.get("blocking", []):
         click.echo(f"[BLOCKING] {issue}")
     for issue in result.get("warnings", []):
@@ -66,60 +101,74 @@ def validate(target_dir: str) -> None:
     sys.exit(0 if result["success"] else 1)
 
 
+@click.command()
+@click.argument("target", default="AGENTS.md", required=False)
 @register_practice(
     principle="最重要原则：核心指导原则需要由人类审核",
-    practices={"共性个性区分": ["guard", "merge"]},
+    practices={"共性个性区分": ["update"]},
 )
-@cli.command()
-@click.option("--principles", required=True, help="Path to principles markdown file")
-@click.option("--target", required=True, help="Path to target AGENTS.md")
-def merge(principles: str, target: str) -> None:
-    """将源markdown文件中的原则块合并到现有的AGENTS.md中，通过语义相似度去重。
+def update(target: str) -> None:
+    """将principles/目录下的原则块合并到AGENTS.md中，通过语义相似度去重。
 
     Examples:
 
-        $ nano-coding guard merge --principles principles/core.md --target AGENTS.md
+        $ uv run nano-coding update
+        $ uv run nano-coding update .
+        $ uv run nano-coding update /path/to/project
     """
-    principles_file = Path(principles)
-    target_file = Path(target)
+    target_path = Path(target)
+    if target_path.is_dir():
+        target_file = target_path / "AGENTS.md"
+    else:
+        target_file = target_path
 
-    if not principles_file.exists():
-        click.echo(f"[ERROR] Principles file not found: {principles}")
-        sys.exit(1)
     if not target_file.exists():
-        click.echo(f"[ERROR] Target file not found: {target}")
+        click.echo(f"[ERROR] Target file not found: {target_file}")
         sys.exit(1)
 
-    principles_content = principles_file.read_text(encoding="utf-8")
-    target_content = target_file.read_text(encoding="utf-8")
+    principles_dir = target_file.parent / "principles"
+    if not principles_dir.exists() or not principles_dir.is_dir():
+        click.echo(f"[ERROR] Principles directory not found: {principles_dir}")
+        sys.exit(1)
 
-    incoming_blocks = extractPrincipleBlocks(principles_content)
+    md_files = sorted(principles_dir.glob("*.md"))
+    if not md_files:
+        click.echo(f"[ERROR] No markdown files found in {principles_dir}")
+        sys.exit(1)
+
+    target_content = target_file.read_text(encoding="utf-8")
+    all_blocks: list = []
+    for md_file in md_files:
+        content = md_file.read_text(encoding="utf-8")
+        blocks = extractPrincipleBlocks(content)
+        all_blocks.extend(blocks)
+
     target_dir = target_file.parent
-    incoming_blocks = resolve_principle_tags(
-        incoming_blocks,
+    all_blocks = resolve_principle_tags(
+        all_blocks,
         str(target_dir) if target_dir.exists() else None,
     )
-    merged = mergePrinciplesIntoDocument(target_content, incoming_blocks)
+    merged = mergePrinciplesIntoDocument(target_content, all_blocks)
 
     target_file.write_text(merged, encoding="utf-8")
-    click.echo(f"Merged {len(incoming_blocks)} principle blocks into {target}")
+    click.echo(f"Merged {len(all_blocks)} principle blocks into {target_file}")
 
 
-@register_practice(
-    principle='行为边界与"防呆"原则 (Guardrails & Boundaries)',
-    practices={"安全防线": ["guard", "scan"]},
-)
-@cli.command()
+@click.command()
 @click.option(
     "--path", default=".", help="Directory to scan (default: current directory)"
 )
 @click.option("--level", default="standard", help="Audit level (default: standard)")
+@register_practice(
+    principle='行为边界与"防呆"原则 (Guardrails & Boundaries)',
+    practices={"安全防线": ["scan"]},
+)
 def scan(path: str, level: str) -> None:
     """对项目运行安全和审计扫描。报告阻塞性问题、警告和建议。
 
     Examples:
 
-        $ nano-coding guard scan --path .
+        $ uv run nano-coding scan --path .
     """
     original_dir = os.getcwd()
     if path != ".":
@@ -146,3 +195,6 @@ def scan(path: str, level: str) -> None:
         sys.exit(1 if security.get("blocking") else 0)
     finally:
         os.chdir(original_dir)
+
+
+commands = [install, validate, update, scan]
