@@ -25,18 +25,25 @@ from nano_coding.core.validator import (
 
 @click.command()
 @click.argument("target_dir")
+@click.option(
+    "--yes",
+    "-y",
+    is_flag=True,
+    help="Skip interactive prompts and use defaults.",
+)
 @register_practice(
     principle='行为边界与"防呆"原则 (Guardrails & Boundaries)',
     practices={"禁止操作": ["install"]},
 )
-def install(target_dir: str) -> None:
+def install(target_dir: str, yes: bool) -> None:
     """将pre-commit钩子和基础principles/目录安装到Git仓库中。
 
     Examples:
 
         $ uv run nano-coding install .
+        $ uv run nano-coding install . --yes
     """
-    install_agent(target_dir)
+    install_agent(target_dir, interactive=not yes)
 
 
 @click.command()
