@@ -200,13 +200,14 @@ class TestGuardInstallIntegration(unittest.TestCase):
             hook_file = git_dir / "hooks" / "pre-commit"
             self.assertTrue(hook_file.exists(), "pre-commit hook should be created")
 
-            principles_dir = tmp_path / "principles"
+            principles_dir = tmp_path / ".nano-coding-agent" / "principles"
             self.assertTrue(
-                principles_dir.exists(), "principles/ directory should be created"
+                principles_dir.exists(),
+                ".nano-coding-agent/principles/ directory should be created",
             )
             self.assertTrue(
                 (principles_dir / "core.md").exists(),
-                "principles/core.md should be copied",
+                ".nano-coding-agent/principles/core.md should be copied",
             )
 
     def test_install_to_non_git_directory_fails(self) -> None:

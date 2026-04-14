@@ -3,6 +3,10 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+from nano_coding.core import config_loader
+
+
+DEFAULT_RULES: list[str] = []
 
 EXCLUDE_DIRS = {
     ".git",
@@ -99,6 +103,20 @@ def validate_project(
     blocking: list[dict[str, str]] = []
     warnings: list[dict[str, str]] = []
 
+    config = config_loader.resolve_config(root)
+    validate_config = config.get("validate", {})
+
+    if isinstance(validate_config.get("max_lines"), int):
+        max_lines = validate_config["max_lines"]
+
+    rules = list(DEFAULT_RULES)
+    if isinstance(validate_config.get("rules"), list):
+        rules.extend(validate_config["rules"])
+
+    exclude_dirs = set(EXCLUDE_DIRS)
+    if isinstance(validate_config.get("ignore_dirs"), list):
+        exclude_dirs.update(validate_config["ignore_dirs"])
+
     agents_md = root / "AGENTS.md"
     if not agents_md.exists():
         blocking.append(
@@ -184,7 +202,7 @@ def validate_project(
         except ValueError:
             continue
 
-        if any(part in EXCLUDE_DIRS for part in relative.parts):
+        if any(part in exclude_dirs for part in relative.parts):
             continue
         if path.suffix not in FILE_EXTENSIONS:
             continue
@@ -297,7 +315,12 @@ def validate_project(
             )
 
     success = len(blocking) == 0
-    return {"success": success, "blocking": blocking, "warnings": warnings}
+    return {
+        "success": success,
+        "blocking": blocking,
+        "warnings": warnings,
+        "rules": rules,
+    }
 
 
 def format_validation_report(result: dict) -> str:

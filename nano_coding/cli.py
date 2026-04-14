@@ -1,7 +1,13 @@
-import importlib
+import os
+from pathlib import Path
+from typing import Optional
 
 import click
 
+from nano_coding import __version__
+from nano_coding.core.local_skill_loader import discover_local_skills, load_python_skill
+from nano_coding.core.project_discovery import find_nearest_agent_dir
+from nano_coding.core.version_checker import check_version
 from nano_coding.skills.guard import commands as guard_commands
 from nano_coding.skills.principle_review import cli as principle_review_cli
 
@@ -70,20 +76,26 @@ class RecursiveHelpGroup(click.Group):
 
 
 @click.group(name="nano-coding", cls=RecursiveHelpGroup)
-@click.version_option(version="0.1.0", prog_name="nano-coding")
+@click.version_option(version=__version__, prog_name="nano-coding")
 def cli() -> None:
     """nano-coding CLI tool for AI coding governance."""
 
 
+def _make_markdown_skill_command(name: str, body: str) -> click.Command:
+    @click.command(name=name)
+    def _cmd() -> None:
+        click.echo(body)
+
+    return _cmd
+
+
 def _register_skills() -> None:
-    # Whitelist of explicitly allowed skill modules.
-    # This prevents arbitrary code execution from injected files in skills/.
-    _SKILL_WHITELIST = {
+    _BUILTIN_SKILLS = {
         "guard": guard_commands,
         "principle-review": principle_review_cli,
     }
 
-    for name, cmd in _SKILL_WHITELIST.items():
+    for name, cmd in _BUILTIN_SKILLS.items():
         if isinstance(cmd, click.Group):
             cli.add_command(cmd, name=name)
         elif isinstance(cmd, dict):
@@ -94,6 +106,29 @@ def _register_skills() -> None:
             for c in cmd:
                 if isinstance(c, click.Command):
                     cli.add_command(c)
+
+    agent_dir = find_nearest_agent_dir(Path(os.getcwd()))
+    if agent_dir is not None:
+        check_version(agent_dir)
+        for skill in discover_local_skills(agent_dir):
+            skill_name = skill["name"]
+            metadata = skill["metadata"]
+            skill_dir = skill["skill_dir"]
+            has_python_module = skill["has_python_module"]
+
+            entrypoint = metadata.get("entrypoint")
+            loaded_cmd: Optional[click.Command] = None
+            if entrypoint and has_python_module:
+                loaded_cmd = load_python_skill(skill_dir, entrypoint)
+
+            if loaded_cmd is None:
+                if skill_name in cli.commands:
+                    continue
+                body = metadata.get("body", "")
+                loaded_cmd = _make_markdown_skill_command(skill_name, body)
+
+            if isinstance(loaded_cmd, click.Command):
+                cli.add_command(loaded_cmd, name=skill_name)
 
 
 _register_skills()

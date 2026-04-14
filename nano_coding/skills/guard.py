@@ -4,7 +4,7 @@ from pathlib import Path
 
 import click
 
-from nano_coding.core.installer import install_hooks_and_principles
+from nano_coding.core.installer import install_agent
 from nano_coding.core.principles import (
     extractPrincipleBlocks,
     mergePrinciplesIntoDocument,
@@ -36,7 +36,7 @@ def install(target_dir: str) -> None:
 
         $ uv run nano-coding install .
     """
-    install_hooks_and_principles(target_dir)
+    install_agent(target_dir)
 
 
 @click.command()
@@ -142,9 +142,18 @@ def update(target: str) -> None:
         click.echo(f"[ERROR] Target file not found: {target_file}")
         sys.exit(1)
 
-    principles_dir = target_file.parent / "principles"
-    if not principles_dir.exists() or not principles_dir.is_dir():
-        click.echo(f"[ERROR] Principles directory not found: {principles_dir}")
+    agent_principles_dir = target_file.parent / ".nano-coding-agent" / "principles"
+    legacy_principles_dir = target_file.parent / "principles"
+
+    if agent_principles_dir.exists() and agent_principles_dir.is_dir():
+        principles_dir = agent_principles_dir
+    elif legacy_principles_dir.exists() and legacy_principles_dir.is_dir():
+        principles_dir = legacy_principles_dir
+    else:
+        click.echo(
+            f"[ERROR] Principles directory not found: tried {agent_principles_dir} "
+            f"and {legacy_principles_dir}"
+        )
         sys.exit(1)
 
     md_files = sorted(principles_dir.glob("*.md"))

@@ -4,12 +4,16 @@ import subprocess
 from pathlib import Path
 from typing import Any, Optional
 
+from nano_coding.core.config_loader import resolve_config
+
 AUDIT_RULES = {
     "python": "python-security",
     "typescript": "ts-security",
     "go": "go-security",
     "rust": "rust-security",
 }
+
+DEFAULT_SCAN_TOOLS = ["semgrep", "regex"]
 
 
 def _is_inside_string(line: str, pos: int) -> bool:
@@ -65,12 +69,45 @@ SUSPICIOUS_PATTERNS = {
 }
 
 
+def _get_scan_config(target_dir: Optional[str] = None) -> dict:
+    config = resolve_config(Path(target_dir) if target_dir else None)
+    return config.get("scan", {})
+
+
+def _load_extra_patterns(rule_paths: list[str]) -> dict[str, list[tuple[str, str]]]:
+    patterns: dict[str, list[tuple[str, str]]] = {}
+    for path_str in rule_paths:
+        path = Path(path_str)
+        if not path.exists():
+            continue
+        try:
+            with open(path, encoding="utf-8") as f:
+                data = json.load(f)
+            if not isinstance(data, dict):
+                continue
+            for lang, lang_patterns in data.items():
+                if not isinstance(lang_patterns, list):
+                    continue
+                if lang not in patterns:
+                    patterns[lang] = []
+                for p in lang_patterns:
+                    if isinstance(p, (list, tuple)) and len(p) >= 2:
+                        patterns[lang].append((str(p[0]), str(p[1])))
+        except Exception:
+            continue
+    return patterns
+
+
 def get_rules_for_type(project_type: str) -> str:
     return AUDIT_RULES.get(project_type, "auto")
 
 
-def run_semgrep(rules: str, level: str = "security") -> dict[str, Any]:
+def run_semgrep(
+    rules: str, level: str = "security", extra_rules: Optional[list[str]] = None
+) -> dict[str, Any]:
     cmd = ["semgrep", "--config", rules, "--json", "--quiet"]
+    for r in extra_rules or []:
+        cmd.extend(["--config", r])
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
         return json.loads(result.stdout) if result.stdout else {"results": []}
@@ -97,15 +134,20 @@ def detect_language(file_path: str) -> Optional[str]:
     return None
 
 
-def analyze_file(file_path: str) -> dict[str, list[str]]:
+def analyze_file(
+    file_path: str,
+    patterns: Optional[dict[str, list[tuple[str, str]]]] = None,
+) -> dict[str, list[str]]:
     warnings: list[str] = []
     suggestions: list[str] = []
+    if patterns is None:
+        patterns = SUSPICIOUS_PATTERNS
     try:
         content = Path(file_path).read_text()
         lang = detect_language(file_path)
-        if not lang or lang not in SUSPICIOUS_PATTERNS:
+        if not lang or lang not in patterns:
             return {"warnings": [], "suggestions": []}
-        for pattern, message in SUSPICIOUS_PATTERNS.get(lang, []):
+        for pattern, message in patterns.get(lang, []):
             for match in re.finditer(pattern, content):
                 line_num = content[: match.start()].count("\n") + 1
                 line_content = content.split("\n")[line_num - 1]
@@ -132,9 +174,17 @@ def get_staged_files() -> list[str]:
         return []
 
 
-def run_security_scan(project_type: str = "auto") -> dict:
+def run_security_scan(
+    project_type: str = "auto", target_dir: Optional[str] = None
+) -> dict:
+    scan_config = _get_scan_config(target_dir)
+    tools = scan_config.get("tools", DEFAULT_SCAN_TOOLS)
+    if "semgrep" not in tools:
+        return {"blocking": [], "warnings": [], "suggestions": []}
+
     rules = get_rules_for_type(project_type)
-    results = run_semgrep(rules)
+    extra_rules = scan_config.get("rules", [])
+    results = run_semgrep(rules, extra_rules=extra_rules)
     blocking_results = filter_blocking(results)
     blocking: list[str] = []
     for r in blocking_results:
@@ -154,17 +204,32 @@ def run_audit_scan(
     files: Optional[list[str]] = None,
     level: str = "standard",
     exclude: Optional[list[str]] = None,
+    target_dir: Optional[str] = None,
 ) -> dict:
+    scan_config = _get_scan_config(target_dir)
+    tools = scan_config.get("tools", DEFAULT_SCAN_TOOLS)
+    if "regex" not in tools:
+        return {"blocking": [], "warnings": [], "suggestions": []}
+
     if not files:
         files = get_staged_files()
     if exclude is None:
         exclude = []
+    ignore_paths = scan_config.get("ignore_paths", [])
+    exclude = exclude + ignore_paths
     filtered_files = [f for f in files if not any(exc in f for exc in exclude)]
+
+    extra_rules = scan_config.get("rules", [])
+    extra_patterns = _load_extra_patterns(extra_rules)
+    patterns = {lang: list(items) for lang, items in SUSPICIOUS_PATTERNS.items()}
+    for lang, lang_patterns in extra_patterns.items():
+        patterns.setdefault(lang, []).extend(lang_patterns)
+
     blocking: list[str] = []
     warnings: list[str] = []
     suggestions: list[str] = []
     for f in filtered_files:
-        analysis = analyze_file(f)
+        analysis = analyze_file(f, patterns=patterns)
         warnings.extend(analysis.get("warnings", []))
         suggestions.extend(analysis.get("suggestions", []))
     return {"blocking": blocking, "warnings": warnings, "suggestions": suggestions}

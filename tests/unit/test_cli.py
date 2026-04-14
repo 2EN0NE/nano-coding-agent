@@ -1,7 +1,9 @@
+import importlib
 import os
 import stat
 import tempfile
 import unittest
+import unittest.mock as mock
 from pathlib import Path
 
 from click.testing import CliRunner
@@ -29,7 +31,7 @@ class TestCliInstall(unittest.TestCase):
             self.assertTrue(dest_hook.exists())
             self.assertTrue(os.access(dest_hook, os.X_OK))
 
-            dest_principles = root / "principles" / "core.md"
+            dest_principles = root / ".nano-coding-agent" / "principles" / "core.md"
             self.assertTrue(dest_principles.exists())
 
 
@@ -116,3 +118,89 @@ class TestCliUpdate(unittest.TestCase):
             second_result = target_file.read_text()
 
             self.assertEqual(first_result, second_result)
+
+
+class TestCliRootSkills(unittest.TestCase):
+    def _reload_cli_module(self, mock_find):
+        with (
+            mock.patch(
+                "nano_coding.core.project_discovery.find_nearest_agent_dir", mock_find
+            ),
+            mock.patch("nano_coding.core.version_checker.check_version"),
+        ):
+            import nano_coding.cli
+
+            importlib.reload(nano_coding.cli)
+            return nano_coding.cli.cli
+
+    def test_local_skill_appears_in_help(self) -> None:
+        runner = CliRunner()
+        with tempfile.TemporaryDirectory() as tmp:
+            agent_dir = Path(tmp) / ".nano-coding-agent"
+            skills_dir = agent_dir / "skills" / "hello"
+            skills_dir.mkdir(parents=True)
+            (skills_dir / "SKILL.md").write_text(
+                "---\nname: hello\n---\nHello world skill body\n"
+            )
+
+            def mock_find(start_dir):
+                return agent_dir
+
+            cli = self._reload_cli_module(mock_find)
+            result = runner.invoke(cli, ["--help"])
+            self.assertEqual(result.exit_code, 0)
+            self.assertIn("hello", result.output)
+
+    def test_local_skill_overrides_builtin(self) -> None:
+        runner = CliRunner()
+        with tempfile.TemporaryDirectory() as tmp:
+            agent_dir = Path(tmp) / ".nano-coding-agent"
+            skills_dir = agent_dir / "skills" / "guard"
+            skills_dir.mkdir(parents=True)
+            (skills_dir / "SKILL.md").write_text(
+                "---\nname: guard\n---\nOverridden guard skill\n"
+            )
+
+            def mock_find(start_dir):
+                return agent_dir
+
+            cli = self._reload_cli_module(mock_find)
+            result = runner.invoke(cli, ["guard"])
+            self.assertEqual(result.exit_code, 0)
+            self.assertIn("Overridden guard skill", result.output)
+
+    def test_local_python_skill_loaded(self) -> None:
+        runner = CliRunner()
+        with tempfile.TemporaryDirectory() as tmp:
+            agent_dir = Path(tmp) / ".nano-coding-agent"
+            skills_dir = agent_dir / "skills" / "pyhello"
+            skills_dir.mkdir(parents=True)
+            (skills_dir / "SKILL.md").write_text(
+                "---\nname: pyhello\nentrypoint: main:hello\n---\nPython hello skill\n"
+            )
+            (skills_dir / "main.py").write_text(
+                "import click\n\n@click.command()\ndef hello():\n    click.echo('hello from python skill')\n"
+            )
+
+            def mock_find(start_dir):
+                return agent_dir
+
+            cli = self._reload_cli_module(mock_find)
+            result = runner.invoke(cli, ["pyhello"])
+            self.assertEqual(result.exit_code, 0)
+            self.assertIn("hello from python skill", result.output)
+
+    def test_no_agent_dir_backwards_compatible(self) -> None:
+        runner = CliRunner()
+
+        def mock_find(start_dir):
+            return None
+
+        cli = self._reload_cli_module(mock_find)
+        result = runner.invoke(cli, ["--help"])
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("install", result.output)
+        self.assertIn("validate", result.output)
+        self.assertIn("update", result.output)
+        self.assertIn("scan", result.output)
+        self.assertIn("principle-review", result.output)

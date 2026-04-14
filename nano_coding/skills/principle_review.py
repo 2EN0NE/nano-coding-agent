@@ -74,7 +74,26 @@ def _run_check_changes(target_path: Path) -> bool:
                 if line:
                     changed.add(line)
 
-    monitored = ["AGENTS.md", "README.md", "BANNED-AGENT-BEHAVIORS", "BACKGROUND.md"]
+    agent_dir = target_path / ".nano-coding-agent"
+    if agent_dir.exists():
+        monitored = [
+            "AGENTS.md",
+            "README.md",
+            "BANNED-AGENT-BEHAVIORS",
+            "BACKGROUND.md",
+            ".nano-coding-agent/AGENTS.md",
+            ".nano-coding-agent/principles/core.md",
+            ".nano-coding-agent/config.json",
+        ]
+    else:
+        monitored = [
+            "AGENTS.md",
+            "README.md",
+            "BANNED-AGENT-BEHAVIORS",
+            "BACKGROUND.md",
+            "principles/core.md",
+        ]
+
     config_file = target_path / ".nano-coding.yaml"
     if config_file.exists():
         try:
@@ -85,7 +104,10 @@ def _run_check_changes(target_path: Path) -> bool:
         except Exception:
             pass
 
-    matches = [p for p in changed if Path(p).name in monitored]
+    matches = []
+    for p in changed:
+        if p in monitored or Path(p).name in monitored:
+            matches.append(p)
     if not matches:
         click.echo("[OK] No core principle document changes detected.")
         return True
@@ -146,9 +168,12 @@ def _run_length_limit(target_path: Path) -> None:
     if agents_md.exists():
         files_to_check.append(agents_md)
 
-    principles_dir = target_path / "principles"
-    if principles_dir.exists() and principles_dir.is_dir():
-        files_to_check.extend(sorted(principles_dir.rglob("*.md")))
+    agent_principles_dir = target_path / ".nano-coding-agent" / "principles"
+    legacy_principles_dir = target_path / "principles"
+    if agent_principles_dir.exists() and agent_principles_dir.is_dir():
+        files_to_check.extend(sorted(agent_principles_dir.rglob("*.md")))
+    elif legacy_principles_dir.exists() and legacy_principles_dir.is_dir():
+        files_to_check.extend(sorted(legacy_principles_dir.rglob("*.md")))
 
     warnings = []
     for file_path in files_to_check:
