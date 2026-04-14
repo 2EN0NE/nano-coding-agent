@@ -1,7 +1,8 @@
-# Knowledge Base
+# 知识库
 
 项目知识库，积累实践经验和规范。
 
 ## 目录
 
 - [目录结构设计](./directory-structure.md) - 项目目录组织原则
+- [安全编码实践](./security-coding.md) - 动态导入白名单、审计规则误报处理

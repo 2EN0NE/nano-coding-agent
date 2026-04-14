@@ -12,6 +12,10 @@ from nano_coding.core.validator import validate_project
 class TestValidator(unittest.TestCase):
     """Tests for validate_project function."""
 
+    @staticmethod
+    def _messages(issues: list[dict]) -> list[str]:
+        return [issue["message"] for issue in issues]
+
     def _create_valid_project(self, root: Path) -> None:
         """Create a minimal valid project structure in root."""
         # AGENTS.md with required section
@@ -50,7 +54,10 @@ class TestValidator(unittest.TestCase):
 
             result = validate_project(str(root))
             self.assertFalse(result["success"])
-            self.assertIn("AGENTS.md not found in project root.", result["blocking"])
+            self.assertIn(
+                "AGENTS.md not found in project root.",
+                self._messages(result["blocking"]),
+            )
 
     def test_missing_jichu_yuanze_fails(self) -> None:
         """AGENTS.md without ## 基础原则 should produce a blocking error."""
@@ -69,7 +76,7 @@ class TestValidator(unittest.TestCase):
             self.assertFalse(result["success"])
             self.assertIn(
                 'AGENTS.md is missing the required "## 基础原则" section.',
-                result["blocking"],
+                self._messages(result["blocking"]),
             )
 
     def test_file_exceeds_max_lines_fails(self) -> None:
@@ -83,7 +90,10 @@ class TestValidator(unittest.TestCase):
             result = validate_project(str(root))
             self.assertFalse(result["success"])
             self.assertTrue(
-                any("exceeds 1000 lines" in msg for msg in result["blocking"]),
+                any(
+                    "exceeds 1000 lines" in msg
+                    for msg in self._messages(result["blocking"])
+                ),
                 f"Expected line-count blocking error, got {result}",
             )
 
@@ -101,7 +111,8 @@ class TestValidator(unittest.TestCase):
             result = validate_project(str(root))
             self.assertTrue(result["success"])
             self.assertIn(
-                "No tests directory or test files detected.", result["warnings"]
+                "No tests directory or test files detected.",
+                self._messages(result["warnings"]),
             )
 
     def test_check_forbidden_dirs_flag(self) -> None:
@@ -114,19 +125,29 @@ class TestValidator(unittest.TestCase):
             result_with = validate_project(str(root), check_forbidden_dirs=True)
             self.assertFalse(result_with["success"])
             self.assertTrue(
-                any("Forbidden directory" in msg for msg in result_with["blocking"]),
+                any(
+                    "Forbidden directory" in msg
+                    for msg in self._messages(result_with["blocking"])
+                ),
                 f"Expected forbidden dir error, got {result_with}",
             )
 
             result_without = validate_project(str(root), check_forbidden_dirs=False)
             self.assertTrue(result_without["success"])
             self.assertFalse(
-                any("Forbidden directory" in msg for msg in result_without["blocking"]),
+                any(
+                    "Forbidden directory" in msg
+                    for msg in self._messages(result_without["blocking"])
+                ),
             )
 
 
 class TestValidatorAgentsAbort(unittest.TestCase):
     """Tests for AGENTS_ABORT.md / BANNED-AGENT-BEHAVIORS.md validation."""
+
+    @staticmethod
+    def _messages(issues: list[dict]) -> list[str]:
+        return [issue["message"] for issue in issues]
 
     def _create_base_project(self, root: Path) -> None:
         """Create base valid project structure to satisfy other checks."""
@@ -179,7 +200,7 @@ class TestValidatorAgentsAbort(unittest.TestCase):
             self.assertTrue(
                 any(
                     "AGENTS_ABORT" in msg or "BANNED" in msg
-                    for msg in result["blocking"]
+                    for msg in self._messages(result["blocking"])
                 ),
                 f"Expected AGENTS_ABORT/BANNED error, got {result}",
             )
@@ -194,7 +215,9 @@ class TestValidatorAgentsAbort(unittest.TestCase):
             result = validate_project(str(root), check_agents_abort=True)
             self.assertFalse(result["success"])
             self.assertTrue(
-                any("empty" in msg.lower() for msg in result["blocking"]),
+                any(
+                    "empty" in msg.lower() for msg in self._messages(result["blocking"])
+                ),
                 f"Expected empty file error, got {result}",
             )
 
@@ -209,13 +232,17 @@ class TestValidatorAgentsAbort(unittest.TestCase):
             self.assertFalse(
                 any(
                     "AGENTS_ABORT" in msg or "BANNED" in msg
-                    for msg in result["blocking"]
+                    for msg in self._messages(result["blocking"])
                 ),
             )
 
 
 class TestValidatorBackground(unittest.TestCase):
     """Tests for BACKGROUND.md validation."""
+
+    @staticmethod
+    def _messages(issues: list[dict]) -> list[str]:
+        return [issue["message"] for issue in issues]
 
     def _create_base_project(self, root: Path) -> None:
         """Create base valid project structure to satisfy other checks."""
@@ -245,7 +272,7 @@ class TestValidatorBackground(unittest.TestCase):
             result = validate_project(str(root), check_background=True)
             self.assertFalse(result["success"])
             self.assertTrue(
-                any("BACKGROUND" in msg for msg in result["blocking"]),
+                any("BACKGROUND" in msg for msg in self._messages(result["blocking"])),
                 f"Expected BACKGROUND.md error, got {result}",
             )
 
@@ -258,12 +285,16 @@ class TestValidatorBackground(unittest.TestCase):
             result = validate_project(str(root), check_background=False)
             self.assertTrue(result["success"])
             self.assertFalse(
-                any("BACKGROUND" in msg for msg in result["blocking"]),
+                any("BACKGROUND" in msg for msg in self._messages(result["blocking"])),
             )
 
 
 class TestValidatorTestSeparation(unittest.TestCase):
     """Tests for test directory separation validation."""
+
+    @staticmethod
+    def _messages(issues: list[dict]) -> list[str]:
+        return [issue["message"] for issue in issues]
 
     def _create_base_project(self, root: Path) -> None:
         """Create base valid project structure to satisfy other checks."""
@@ -295,7 +326,9 @@ class TestValidatorTestSeparation(unittest.TestCase):
             result = validate_project(str(root), check_test_separation=True)
             self.assertFalse(result["success"])
             self.assertTrue(
-                any("unit" in msg.lower() for msg in result["blocking"]),
+                any(
+                    "unit" in msg.lower() for msg in self._messages(result["blocking"])
+                ),
                 f"Expected tests/unit/ error, got {result}",
             )
 
@@ -310,7 +343,10 @@ class TestValidatorTestSeparation(unittest.TestCase):
             result = validate_project(str(root), check_test_separation=True)
             self.assertFalse(result["success"])
             self.assertTrue(
-                any("integration" in msg.lower() for msg in result["blocking"]),
+                any(
+                    "integration" in msg.lower()
+                    for msg in self._messages(result["blocking"])
+                ),
                 f"Expected tests/integration/ error, got {result}",
             )
 
@@ -323,7 +359,9 @@ class TestValidatorTestSeparation(unittest.TestCase):
             result = validate_project(str(root), check_test_separation=True)
             self.assertFalse(result["success"])
             self.assertTrue(
-                any("tests" in msg.lower() for msg in result["blocking"]),
+                any(
+                    "tests" in msg.lower() for msg in self._messages(result["blocking"])
+                ),
                 f"Expected tests/ error, got {result}",
             )
 
@@ -338,13 +376,17 @@ class TestValidatorTestSeparation(unittest.TestCase):
             self.assertFalse(
                 any(
                     "unit" in msg.lower() or "integration" in msg.lower()
-                    for msg in result["blocking"]
+                    for msg in self._messages(result["blocking"])
                 ),
             )
 
 
 class TestValidatorTestCommands(unittest.TestCase):
     """Tests for test commands validation in README.md / AGENTS.md."""
+
+    @staticmethod
+    def _messages(issues: list[dict]) -> list[str]:
+        return [issue["message"] for issue in issues]
 
     def _create_base_project(self, root: Path) -> None:
         """Create base valid project structure to satisfy other checks."""
@@ -394,7 +436,7 @@ class TestValidatorTestCommands(unittest.TestCase):
                     "test command" in msg.lower()
                     or "pytest" in msg.lower()
                     or "npm test" in msg.lower()
-                    for msg in result["blocking"]
+                    for msg in self._messages(result["blocking"])
                 ),
                 f"Expected test command error, got {result}",
             )
@@ -416,7 +458,7 @@ class TestValidatorTestCommands(unittest.TestCase):
                     "specific" in msg.lower()
                     or "vague" in msg.lower()
                     or "command" in msg.lower()
-                    for msg in result["blocking"]
+                    for msg in self._messages(result["blocking"])
                 ),
                 f"Expected specific command error, got {result}",
             )
@@ -431,7 +473,10 @@ class TestValidatorTestCommands(unittest.TestCase):
             result = validate_project(str(root), check_test_commands=False)
             self.assertTrue(result["success"])
             self.assertFalse(
-                any("test command" in msg.lower() for msg in result["blocking"]),
+                any(
+                    "test command" in msg.lower()
+                    for msg in self._messages(result["blocking"])
+                ),
             )
 
 

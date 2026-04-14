@@ -1,5 +1,6 @@
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -35,7 +36,9 @@ class TestEndToEnd(unittest.TestCase):
 
             src_dir = root / "src"
             src_dir.mkdir()
-            (src_dir / "hello.py").write_text('print("hello")\n')
+            (src_dir / "hello.py").write_text(
+                'import sys\nsys.stdout.write("hello\\n")\n'
+            )
 
             unit_tests_dir = root / "tests" / "unit"
             integration_tests_dir = root / "tests" / "integration"
@@ -134,3 +137,35 @@ class TestEndToEnd(unittest.TestCase):
                 env=env,
             )
             self.assertNotIn("Traceback", scan_result.stderr)
+
+
+class TestPackageInstallationSmoke(unittest.TestCase):
+    def test_installed_package_can_run_help(self) -> None:
+        project_root = Path(__file__).resolve().parent.parent.parent
+        with tempfile.TemporaryDirectory() as tmp:
+            venv = Path(tmp) / "venv"
+            subprocess.run(
+                [sys.executable, "-m", "venv", str(venv)],
+                check=True,
+                capture_output=True,
+            )
+            pip = str(venv / "bin" / "pip")
+            nano_coding = str(venv / "bin" / "nano-coding")
+
+            subprocess.run(
+                [pip, "install", str(project_root)],
+                check=True,
+                capture_output=True,
+            )
+
+            result = subprocess.run(
+                [nano_coding, "--help"],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            self.assertIn("nano-coding", result.stdout)
+
+
+if __name__ == "__main__":
+    unittest.main()

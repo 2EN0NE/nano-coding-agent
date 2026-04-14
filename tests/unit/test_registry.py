@@ -31,16 +31,17 @@ class TestRegistry(unittest.TestCase):
         self.assertEqual(my_func(), 42)
         self.assertIn("Principle A", _REGISTRY)
         self.assertIn("Principle B", _REGISTRY)
+        # Now stored as list of lists per practice
         self.assertEqual(
             _REGISTRY["Principle A"],
             {
-                "practice_1": ["nano-coding", "scan"],
-                "practice_2": ["nano-coding", "validate"],
+                "practice_1": [["nano-coding", "scan"]],
+                "practice_2": [["nano-coding", "validate"]],
             },
         )
         self.assertEqual(
             _REGISTRY["Principle B"],
-            {"practice_x": ["nano-coding", "install"]},
+            {"practice_x": [["nano-coding", "install"]]},
         )
 
     def test_collect_principle_status_mock(self) -> None:

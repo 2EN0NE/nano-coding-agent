@@ -72,7 +72,7 @@
 
 ## 审计技能
 
-### 6. guardian
+### 6. nano-coding-guard
 
 **用途**: 安全扫描
 
@@ -159,7 +159,7 @@
 task_skill_map = {
     "frontend": ["frontend-ui-ux", "playwright"],
     "backend": ["deepeval-runner"],
-    "security": ["guardian"],
+    "security": ["nano-coding-guard"],
     "code_review": ["audit-reviewer"],
     "git_ops": ["git-master"],
 }

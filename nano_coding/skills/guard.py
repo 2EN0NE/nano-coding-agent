@@ -16,7 +16,11 @@ from nano_coding.core.scanner import (
     run_security_scan,
 )
 from nano_coding.core.registry import register_practice
-from nano_coding.core.validator import validate_project
+from nano_coding.core.validator import (
+    format_validation_report,
+    show_report_interactively,
+    validate_project,
+)
 
 
 @click.command()
@@ -57,6 +61,12 @@ def install(target_dir: str) -> None:
     is_flag=True,
     help="Validate README.md or AGENTS.md contains specific test commands.",
 )
+@click.option(
+    "--interactive",
+    "-i",
+    is_flag=True,
+    help="Display results in an interactive pager (less-style).",
+)
 @register_practice(
     principle='行为边界与"防呆"原则 (Guardrails & Boundaries)',
     practices={"禁止操作": ["validate", "validate --check-agents-abort"]},
@@ -79,6 +89,7 @@ def validate(
     check_background: bool,
     check_test_separation: bool,
     check_test_commands: bool,
+    interactive: bool,
 ) -> None:
     """验证项目是否满足基础治理规则。
 
@@ -86,6 +97,7 @@ def validate(
 
         $ uv run nano-coding validate .
         $ uv run nano-coding validate . --check-agents-abort --check-background
+        $ uv run nano-coding validate . --interactive
     """
     result = validate_project(
         target_dir,
@@ -94,10 +106,14 @@ def validate(
         check_test_separation=check_test_separation,
         check_test_commands=check_test_commands,
     )
-    for issue in result.get("blocking", []):
-        click.echo(f"[BLOCKING] {issue}")
-    for issue in result.get("warnings", []):
-        click.echo(f"[WARNING] {issue}")
+
+    report = format_validation_report(result)
+
+    if interactive:
+        show_report_interactively(report)
+    else:
+        click.echo(report)
+
     sys.exit(0 if result["success"] else 1)
 
 

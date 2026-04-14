@@ -11,13 +11,41 @@ AUDIT_RULES = {
     "rust": "rust-security",
 }
 
+
+def _is_inside_string(line: str, pos: int) -> bool:
+    """Check if position in line is inside a string literal."""
+    in_single = False
+    in_double = False
+    escaped = False
+    for i, char in enumerate(line):
+        if i > pos:
+            break
+        if escaped:
+            escaped = False
+            continue
+        if char == "\\":
+            escaped = True
+            continue
+        if char == '"' and not in_single:
+            in_double = not in_double
+        elif char == "'" and not in_double:
+            in_single = not in_single
+    return in_single or in_double
+
+
 SUSPICIOUS_PATTERNS = {
     "python": [
         (r"print\s*\(", "Print statement found - consider using logging"),
-        (r"TODO\b", "TODO comment found"),
-        (r"FIXME\b", "FIXME comment found"),
-        (r"except:\s*\n\s*pass", "Bare except clause with pass"),
-        (r"os\.environ\.get\(['\"](API_KEY|SECRET|PASSWORD|TOKEN)", "Potential secret in environment access"),
+        (r"#.*TODO\b", "TODO comment found"),
+        (r"#.*FIXME\b", "FIXME comment found"),
+        (
+            r"except:\s*\n\s*pass",
+            "Bare except clause with pass",
+        ),
+        (
+            r"os\.environ\.get\(['\"](API_KEY|SECRET|PASSWORD|TOKEN)",
+            "Potential secret in environment access",
+        ),
     ],
     "javascript": [
         (r"console\.log\s*\(", "Console.log found"),
@@ -29,7 +57,10 @@ SUSPICIOUS_PATTERNS = {
         (r"TODO\b", "TODO comment found"),
         (r"FIXME\b", "FIXME comment found"),
         (r"@ts-ignore", "ts-ignore found - may hide type errors"),
-        (r"as\s+any\s*(\"|')", "Type assertion to 'any' - loses type safety"),
+        (
+            r"as\s+any\s*(\"|')",
+            "Type assertion to 'any' - loses type safety",
+        ),
     ],
 }
 
@@ -77,6 +108,11 @@ def analyze_file(file_path: str) -> dict[str, list[str]]:
         for pattern, message in SUSPICIOUS_PATTERNS.get(lang, []):
             for match in re.finditer(pattern, content):
                 line_num = content[: match.start()].count("\n") + 1
+                line_content = content.split("\n")[line_num - 1]
+                line_start = content.rfind("\n", 0, match.start()) + 1
+                pos_in_line = match.start() - line_start
+                if _is_inside_string(line_content, pos_in_line):
+                    continue
                 warnings.append(f"{file_path}:{line_num}: {message}")
     except Exception as e:
         suggestions.append(f"Could not analyze {file_path}: {str(e)}")

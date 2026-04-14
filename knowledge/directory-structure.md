@@ -39,7 +39,7 @@
 │   ├── requirements.txt
 │   └── implementations/  # Hook 实现
 │       ├── audit.py      # 审阅 Agent
-│       └── guardian.py   # 安全扫描
+│       └── guard.py   # 安全扫描
 ├── evals/                # 评估配置
 │   └── deepeval_config.py
 └── scripts/              # 辅助脚本
@@ -82,7 +82,7 @@ docs/
 ```
 scripts/
 ├── audit_agent.py   # （已迁移到 hooks/）
-└── guardian.py      # （已迁移到 hooks/）
+└── guard.py      # （已迁移到 hooks/）
 ```
 
 ### .husky/ (Git Hooks)

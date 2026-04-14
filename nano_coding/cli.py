@@ -1,9 +1,9 @@
 import importlib
-import pkgutil
 
 import click
 
-import nano_coding.skills
+from nano_coding.skills.guard import commands as guard_commands
+from nano_coding.skills.principle_review import cli as principle_review_cli
 
 
 class RecursiveHelpGroup(click.Group):
@@ -76,22 +76,24 @@ def cli() -> None:
 
 
 def _register_skills() -> None:
-    for _, name, _ in pkgutil.iter_modules(nano_coding.skills.__path__):
-        module = importlib.import_module(f"nano_coding.skills.{name}")
-        group = getattr(module, "cli", None)
-        if isinstance(group, click.Group):
-            cli.add_command(group, name=name.replace("_", "-"))
-            continue
-        commands = getattr(module, "commands", None)
-        if isinstance(commands, (list, tuple, dict)):
-            if isinstance(commands, dict):
-                for cmd_name, cmd in commands.items():
-                    if isinstance(cmd, click.Command):
-                        cli.add_command(cmd, name=cmd_name.replace("_", "-"))
-            else:
-                for cmd in commands:
-                    if isinstance(cmd, click.Command):
-                        cli.add_command(cmd)
+    # Whitelist of explicitly allowed skill modules.
+    # This prevents arbitrary code execution from injected files in skills/.
+    _SKILL_WHITELIST = {
+        "guard": guard_commands,
+        "principle-review": principle_review_cli,
+    }
+
+    for name, cmd in _SKILL_WHITELIST.items():
+        if isinstance(cmd, click.Group):
+            cli.add_command(cmd, name=name)
+        elif isinstance(cmd, dict):
+            for cmd_name, c in cmd.items():
+                if isinstance(c, click.Command):
+                    cli.add_command(c, name=cmd_name.replace("_", "-"))
+        elif isinstance(cmd, (list, tuple)):
+            for c in cmd:
+                if isinstance(c, click.Command):
+                    cli.add_command(c)
 
 
 _register_skills()
