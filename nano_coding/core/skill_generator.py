@@ -98,10 +98,14 @@ def generate_all_skills() -> dict[str, str]:
     return results
 
 
-def write_skills_to_agent_dir(agent_dir: Path, force: bool = False) -> None:
+def write_skills_to_agent_dir(
+    agent_dir: Path, force: bool = False, names: list[str] | None = None
+) -> None:
     """Write generated SKILL.md files to agent_dir/skills/{name}/SKILL.md."""
     agent_dir = Path(agent_dir)
     skills = generate_all_skills()
+    if names is not None:
+        skills = {name: content for name, content in skills.items() if name in names}
 
     for name, content in skills.items():
         skill_dir = agent_dir / "skills" / name

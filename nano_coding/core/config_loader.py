@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
+
+import click
 
 from nano_coding.core.project_discovery import find_nearest_agent_dir
 
@@ -19,10 +20,10 @@ def load_config(path: Path) -> dict:
         with open(path, encoding="utf-8") as f:
             data = json.load(f)
     except (json.JSONDecodeError, OSError) as exc:
-        print(f"Warning: failed to load config from {path}: {exc}", file=sys.stderr)
+        click.echo(f"Warning: failed to load config from {path}: {exc}", err=True)
         return {}
     if not isinstance(data, dict):
-        print(f"Warning: config at {path} is not a JSON object", file=sys.stderr)
+        click.echo(f"Warning: config at {path} is not a JSON object", err=True)
         return {}
     return data
 

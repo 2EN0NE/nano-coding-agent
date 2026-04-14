@@ -2,35 +2,53 @@ import shutil
 import stat
 import sys
 from pathlib import Path
+from typing import Any
+
+import click
 
 from nano_coding import __version__
+from nano_coding.agent.skills import BUILTIN_SKILL_NAMES
 from nano_coding.core import skill_generator
 
+try:
+    from importlib.resources import files  # nosemgrep
+except ImportError:
 
-DEFAULT_CONFIG = "{}"
+    def files(package: str) -> Any:
+        parts = package.split(".")
+        mod = __import__(package, fromlist=["__file__"])
+        path = Path(mod.__file__).resolve().parent
+        for part in parts[1:]:
+            path = path / part
+        return _PackagePath(path)
 
-DEFAULT_AGENTS_MD = """# Agent Context
+    class _PackagePath:
+        def __init__(self, path: Path) -> None:
+            self._path = path
 
-This is the project-level agent context for the nano-coding-agent toolchain.
-Place project-specific rules, conventions, and principles here.
-"""
+        def __truediv__(self, other: str) -> "_PackagePath":
+            return _PackagePath(self._path / other)
 
-GLOBAL_HOOK_DISPATCHER = """#!/usr/bin/env bash
-set -e
-if [ -f ".nano-coding-agent/hooks/pre-commit" ]; then
-    bash ".nano-coding-agent/hooks/pre-commit"
-else
-    python3 -m nano_coding.cli scan --path .
-    python3 -m nano_coding.cli validate .
-fi
-"""
+        def read_text(self, encoding: str = "utf-8") -> str:
+            return self._path.read_text(encoding=encoding)
+
+        def read_bytes(self) -> bytes:
+            return self._path.read_bytes()
+
+
+def _read_agent_text(relative_path: str) -> str:
+    pkg_path = files("nano_coding.agent") / relative_path
+    return pkg_path.read_text(encoding="utf-8")
 
 
 def install_agent(target_dir: str) -> None:
     target = Path(target_dir).resolve()
     git_dir = target / ".git"
     if not git_dir.is_dir():
-        print(f"[ERROR] {target} is not a git repository (.git directory missing)")
+        click.echo(
+            f"[ERROR] {target} is not a git repository (.git directory missing)",
+            err=True,
+        )
         sys.exit(1)
 
     agent_dir = target / ".nano-coding-agent"
@@ -44,11 +62,15 @@ def install_agent(target_dir: str) -> None:
 
     config_file = agent_dir / "config.json"
     if not config_file.exists():
-        config_file.write_text(DEFAULT_CONFIG, encoding="utf-8")
+        config_file.write_text(
+            _read_agent_text("templates/config.json"), encoding="utf-8"
+        )
 
     agents_md_file = agent_dir / "AGENTS.md"
     if not agents_md_file.exists():
-        agents_md_file.write_text(DEFAULT_AGENTS_MD, encoding="utf-8")
+        agents_md_file.write_text(
+            _read_agent_text("templates/AGENTS.md"), encoding="utf-8"
+        )
 
     source_principles = (
         Path(__file__).resolve().parent.parent.parent / "principles" / "core.md"
@@ -61,14 +83,16 @@ def install_agent(target_dir: str) -> None:
     dest_hook = agent_dir / "hooks" / "pre-commit"
     shutil.copy(str(source_hook), str(dest_hook))
 
-    skill_generator.write_skills_to_agent_dir(agent_dir, force=False)
+    skill_generator.write_skills_to_agent_dir(
+        agent_dir, force=False, names=BUILTIN_SKILL_NAMES
+    )
 
     global_hook = git_dir / "hooks" / "pre-commit"
     global_hook.parent.mkdir(parents=True, exist_ok=True)
-    global_hook.write_text(GLOBAL_HOOK_DISPATCHER, encoding="utf-8")
+    global_hook.write_text(_read_agent_text("hooks/pre-commit"), encoding="utf-8")
     global_hook.chmod(
         global_hook.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
     )
 
-    print(f"Installed nano-coding agent to {agent_dir}")
-    print(f"Installed global hook dispatcher to {global_hook}")
+    click.echo(f"Installed nano-coding agent to {agent_dir}")
+    click.echo(f"Installed global hook dispatcher to {global_hook}")

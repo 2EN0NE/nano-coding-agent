@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
-import sys
+
+import click
 
 from nano_coding import __version__
 
@@ -23,8 +24,8 @@ def check_version(agent_dir: Path) -> None:
         return
     global_ver = get_global_version()
     if local != global_ver:
-        print(
+        click.echo(
             f"\033[33mWARNING: Local agent version ({local}) does not match global version ({global_ver}).\033[0m",
-            file=sys.stderr,
-            flush=True,
+            err=True,
+            color=True,
         )
