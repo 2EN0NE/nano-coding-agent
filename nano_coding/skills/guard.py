@@ -1,4 +1,5 @@
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -195,7 +196,9 @@ def validate(
     if isinstance(validate_config.get("ignore_dirs"), list):
         exclude_dirs.update(validate_config["ignore_dirs"])
 
-    engine = build_validation_engine(max_lines=max_lines, exclude_dirs=exclude_dirs)
+    engine = build_validation_engine(
+        max_lines=max_lines, exclude_dirs=exclude_dirs, config=config
+    )
 
     any_flag = (
         check_agents_abort
@@ -337,7 +340,12 @@ def update(target: str) -> None:
         all_blocks,
         str(target_dir) if target_dir.exists() else None,
     )
-    result = mergePrinciplesIntoDocument(target_content, all_blocks)
+
+    config = config_loader.resolve_config(target_dir)
+    semantic_threshold = config.get("semantic_threshold", 0.88)
+    result = mergePrinciplesIntoDocument(
+        target_content, all_blocks, semantic_threshold=semantic_threshold
+    )
 
     for warning in result.warnings:
         click.echo(warning, err=True)
@@ -442,7 +450,8 @@ def scan(path: str, level: str, interactive: bool, staged: bool) -> None:
         os.chdir(root)
 
     try:
-        engine = build_validation_engine(exclude_dirs=set(EXCLUDE_DIRS))
+        config = config_loader.resolve_config(root)
+        engine = build_validation_engine(exclude_dirs=set(EXCLUDE_DIRS), config=config)
         check_results = engine.run_all(root, llm=False)
 
         blocking: list[str] = []
@@ -482,4 +491,68 @@ def scan(path: str, level: str, interactive: bool, staged: bool) -> None:
         os.chdir(original_dir)
 
 
-commands = [install, validate, update, scan]
+@click.command(name="confirm-principles")
+@click.option("--path", default=".", help="Project path (default: current directory)")
+@click.option(
+    "--yes", "-y", is_flag=True, help="Skip interactive prompt and auto-confirm."
+)
+def confirm_principles(path: str, yes: bool) -> None:
+    """Check if staged changes affect protected documents and prompt for confirmation.
+
+    Examples:
+
+        $ uv run nano-coding confirm-principles --path .
+        $ uv run nano-coding confirm-principles --path . --yes
+    """
+    root = Path(path).resolve()
+    config = config_loader.resolve_config(root)
+    protected = config.get(
+        "protected_documents",
+        [
+            "AGENTS.md",
+            "AGENTS_ABORT.md",
+            "BANNED-AGENT-BEHAVIORS.md",
+            ".nano-coding-agent/config.json",
+        ],
+    )
+
+    try:
+        proc = subprocess.run(
+            ["git", "diff", "--cached", "--name-only"],
+            cwd=str(root),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except Exception:
+        sys.exit(0)
+
+    if proc.returncode != 0:
+        sys.exit(0)
+
+    staged_files = [line.strip() for line in proc.stdout.splitlines() if line.strip()]
+    affected = [f for f in staged_files if f in protected]
+
+    if not affected:
+        sys.exit(0)
+
+    files_str = ", ".join(affected)
+
+    if yes:
+        click.echo(f"Changes to protected documents confirmed via --yes: {files_str}")
+        sys.exit(0)
+
+    answer = click.prompt(
+        f"You are about to commit changes to protected documents: {files_str}. Have you personally reviewed these changes? (yes/no)",
+        type=str,
+    )
+    if answer.strip().lower() != "yes":
+        click.echo(
+            "Aborting commit: protected document changes not confirmed.", err=True
+        )
+        sys.exit(1)
+
+    sys.exit(0)
+
+
+commands = [install, validate, update, scan, confirm_principles]

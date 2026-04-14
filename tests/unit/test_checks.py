@@ -20,6 +20,8 @@ from nano_coding.core.validator import (
     CheckReadmeI18n,
     CheckSubdirAgents,
     CheckSubdirAgentsOverflow,
+    ProtectedDocsCheck,
+    build_validation_engine,
 )
 
 
@@ -63,6 +65,36 @@ class TestCheckSubdirAgents(unittest.TestCase):
                 "\n".join([f"line {i}" for i in range(501)])
             )
             result = CheckSubdirAgents().run(root)
+            self.assertEqual(len(result), 1)
+            self.assertIn("SUBDIR_AGENTS_MISSING", result[0].rule_id)
+
+    def test_custom_source_file_threshold(self) -> None:
+        config = {"checks": {"subdir_agents": {"source_file_threshold": 5}}}
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "AGENTS.md").write_text("# Project\n")
+            for i in range(6):
+                (root / f"src{i}.py").write_text("pass\n")
+            check = CheckSubdirAgents(
+                source_file_threshold=config["checks"]["subdir_agents"][
+                    "source_file_threshold"
+                ]
+            )
+            result = check.run(root)
+            self.assertEqual(len(result), 1)
+            self.assertIn("SUBDIR_AGENTS_MISSING", result[0].rule_id)
+
+    def test_custom_agents_line_threshold(self) -> None:
+        config = {"checks": {"subdir_agents": {"agents_line_threshold": 10}}}
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "AGENTS.md").write_text("\n".join([f"line {i}" for i in range(11)]))
+            check = CheckSubdirAgents(
+                agents_line_threshold=config["checks"]["subdir_agents"][
+                    "agents_line_threshold"
+                ]
+            )
+            result = check.run(root)
             self.assertEqual(len(result), 1)
             self.assertIn("SUBDIR_AGENTS_MISSING", result[0].rule_id)
 
@@ -387,6 +419,49 @@ class TestCheckCommitSize(unittest.TestCase):
             self.assertIn("COMMIT_TOO_LARGE", result[0].rule_id)
             self.assertEqual(result[0].severity, "warning")
 
+    def test_custom_max_files_threshold(self) -> None:
+        config = {"checks": {"commit_size": {"max_files": 5, "max_insertions": 500}}}
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._init_git(root)
+            for i in range(6):
+                f = root / f"file{i}.py"
+                f.write_text(f"value = {i}\n")
+            subprocess.run(
+                ["git", "add", "."],
+                cwd=str(root),
+                capture_output=True,
+                check=False,
+            )
+            check = CheckCommitSize(
+                max_files=config["checks"]["commit_size"]["max_files"],
+                max_insertions=config["checks"]["commit_size"]["max_insertions"],
+            )
+            result = check.run(root)
+            self.assertEqual(len(result), 1)
+            self.assertIn("COMMIT_TOO_LARGE", result[0].rule_id)
+
+    def test_custom_max_insertions_threshold(self) -> None:
+        config = {"checks": {"commit_size": {"max_files": 10, "max_insertions": 20}}}
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._init_git(root)
+            f = root / "big.py"
+            f.write_text("\n".join([f"value = {i}" for i in range(25)]))
+            subprocess.run(
+                ["git", "add", "."],
+                cwd=str(root),
+                capture_output=True,
+                check=False,
+            )
+            check = CheckCommitSize(
+                max_files=config["checks"]["commit_size"]["max_files"],
+                max_insertions=config["checks"]["commit_size"]["max_insertions"],
+            )
+            result = check.run(root)
+            self.assertEqual(len(result), 1)
+            self.assertIn("COMMIT_TOO_LARGE", result[0].rule_id)
+
 
 class TestCheckPackageManager(unittest.TestCase):
     """Tests for CheckPackageManager."""
@@ -464,6 +539,118 @@ class TestCheckAgentsLength(unittest.TestCase):
             result = CheckAgentsLength().run(root)
             rule_ids = {r.rule_id for r in result}
             self.assertIn("PRACTICE_LINE_TOO_LONG", rule_ids)
+
+    def test_custom_max_lines_threshold(self) -> None:
+        config = {"checks": {"agents_length": {"max_lines": 5}}}
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "AGENTS.md").write_text("\n".join([f"line {i}" for i in range(6)]))
+            check = CheckAgentsLength(
+                max_lines=config["checks"]["agents_length"]["max_lines"]
+            )
+            result = check.run(root)
+            rule_ids = {r.rule_id for r in result}
+            self.assertIn("AGENTS_FILE_TOO_LONG", rule_ids)
+
+    def test_custom_max_principle_chars_threshold(self) -> None:
+        config = {"checks": {"agents_length": {"max_principle_chars": 50}}}
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            body = "x" * 60
+            (root / "AGENTS.md").write_text(f"# Project\n\n### Big Block\n{body}\n")
+            check = CheckAgentsLength(
+                max_principle_chars=config["checks"]["agents_length"][
+                    "max_principle_chars"
+                ]
+            )
+            result = check.run(root)
+            rule_ids = {r.rule_id for r in result}
+            self.assertIn("PRINCIPLE_BLOCK_TOO_LONG", rule_ids)
+
+    def test_custom_max_practice_chars_threshold(self) -> None:
+        config = {"checks": {"agents_length": {"max_practice_chars": 20}}}
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            long_line = "- " + "x" * 25
+            (root / "AGENTS.md").write_text(f"# Project\n\n### 基础原则\n{long_line}\n")
+            check = CheckAgentsLength(
+                max_practice_chars=config["checks"]["agents_length"][
+                    "max_practice_chars"
+                ]
+            )
+            result = check.run(root)
+            rule_ids = {r.rule_id for r in result}
+            self.assertIn("PRACTICE_LINE_TOO_LONG", rule_ids)
+
+
+class TestProtectedDocsCheck(unittest.TestCase):
+    """Tests for ProtectedDocsCheck."""
+
+    def _init_git(self, root: Path) -> None:
+        subprocess.run(
+            ["git", "init"],
+            cwd=str(root),
+            capture_output=True,
+            check=False,
+        )
+        subprocess.run(
+            ["git", "config", "user.email", "test@test.com"],
+            cwd=str(root),
+            capture_output=True,
+            check=False,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test"],
+            cwd=str(root),
+            capture_output=True,
+            check=False,
+        )
+
+    def test_no_staged_files_pass(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._init_git(root)
+            result = ProtectedDocsCheck().run(root)
+            self.assertEqual(result, [])
+
+    def test_staged_protected_doc_warn(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._init_git(root)
+            (root / "AGENTS.md").write_text("# Project\n")
+            subprocess.run(
+                ["git", "add", "AGENTS.md"],
+                cwd=str(root),
+                capture_output=True,
+                check=False,
+            )
+            result = ProtectedDocsCheck().run(root)
+            self.assertEqual(len(result), 1)
+            self.assertIn("PROTECTED_DOCS_STAGED", result[0].rule_id)
+            self.assertEqual(result[0].severity, "warning")
+            self.assertIn("AGENTS.md", result[0].message)
+
+    def test_custom_protected_documents(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._init_git(root)
+            agent_dir = root / ".nano-coding-agent"
+            agent_dir.mkdir()
+            config = {"protected_documents": ["CUSTOM.md"]}
+            import json
+
+            (agent_dir / "config.json").write_text(json.dumps(config))
+            (root / "CUSTOM.md").write_text("# Custom\n")
+            subprocess.run(
+                ["git", "add", "CUSTOM.md"],
+                cwd=str(root),
+                capture_output=True,
+                check=False,
+            )
+            result = ProtectedDocsCheck().run(root)
+            self.assertEqual(len(result), 1)
+            self.assertIn("PROTECTED_DOCS_STAGED", result[0].rule_id)
+            self.assertIn("CUSTOM.md", result[0].message)
 
 
 if __name__ == "__main__":

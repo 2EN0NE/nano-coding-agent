@@ -501,20 +501,29 @@ class CheckSubdirAgents(Check):
     severity = "warning"
     requires_llm = False
 
+    def __init__(
+        self, source_file_threshold: int = 50, agents_line_threshold: int = 500
+    ):
+        self.source_file_threshold = source_file_threshold
+        self.agents_line_threshold = agents_line_threshold
+
     def run(self, project_root: Path) -> list[Issue]:
         agents_md = project_root / "AGENTS.md"
         agents_lines = 0
         if agents_md.exists():
             with agents_md.open("rb") as f:
                 agents_lines = sum(1 for _ in f)
-        if _count_source_files(project_root) > 50 or agents_lines > 500:
+        if (
+            _count_source_files(project_root) > self.source_file_threshold
+            or agents_lines > self.agents_line_threshold
+        ):
             if not _has_subdir_agents(project_root):
                 return [
                     Issue(
                         path=None,
                         line=None,
                         rule_id="SUBDIR_AGENTS_MISSING",
-                        message="Project is large (>50 source files or AGENTS.md >500 lines) but no sub-directory AGENTS.md found.",
+                        message=f"Project is large (>{self.source_file_threshold} source files or AGENTS.md >{self.agents_line_threshold} lines) but no sub-directory AGENTS.md found.",
                         principle=self.principle,
                         practice=self.practice,
                         severity=self.severity,
@@ -585,6 +594,10 @@ class CheckSubdirAgentsOverflow(Check):
     severity = "warning"
     requires_llm = False
 
+    def __init__(self, max_lines: int = 500, max_blocks: int = 20):
+        self.max_lines = max_lines
+        self.max_blocks = max_blocks
+
     def run(self, project_root: Path) -> list[Issue]:
         agents_md = project_root / "AGENTS.md"
         if not agents_md.exists():
@@ -592,14 +605,14 @@ class CheckSubdirAgentsOverflow(Check):
         content = agents_md.read_text(encoding="utf-8")
         lines = content.splitlines()
         blocks = extractPrincipleBlocks(content)
-        if len(lines) > 500 or len(blocks) > 20:
+        if len(lines) > self.max_lines or len(blocks) > self.max_blocks:
             if not _has_subdir_agents(project_root):
                 return [
                     Issue(
                         path=None,
                         line=None,
                         rule_id="SUBDIR_AGENTS_OVERFLOW",
-                        message="AGENTS.md is large (>500 lines or >20 principle sections) but no sub-directory AGENTS.md found for overflow.",
+                        message=f"AGENTS.md is large (>{self.max_lines} lines or >{self.max_blocks} principle sections) but no sub-directory AGENTS.md found for overflow.",
                         principle=self.principle,
                         practice=self.practice,
                         severity=self.severity,
@@ -614,6 +627,9 @@ class CheckAgentsLanguage(Check):
     practice = "权威文档（AGENTS.md）保持必须单一语言"
     severity = "warning"
     requires_llm = False
+
+    def __init__(self, mixed_ratio: float = 0.30):
+        self.mixed_ratio = mixed_ratio
 
     def run(self, project_root: Path) -> list[Issue]:
         agents_md = project_root / "AGENTS.md"
@@ -639,7 +655,7 @@ class CheckAgentsLanguage(Check):
             has_latin = bool(re.search(r"[A-Za-z]", line))
             if has_cjk and has_latin:
                 mixed += 1
-        if non_trivial > 0 and mixed / non_trivial > 0.30:
+        if non_trivial > 0 and mixed / non_trivial > self.mixed_ratio:
             return [
                 Issue(
                     path="AGENTS.md",
@@ -735,6 +751,9 @@ class CheckGitignoreTempfiles(Check):
     SENSITIVE_SUFFIXES = (".key", ".pem", ".p12", ".log")
     EXACT_NAMES = ("id_rsa",)
 
+    def __init__(self, log_size_bytes: int = 1048576):
+        self.log_size_bytes = log_size_bytes
+
     def run(self, project_root: Path) -> list[Issue]:
         try:
             proc = subprocess.run(
@@ -770,7 +789,7 @@ class CheckGitignoreTempfiles(Check):
             ):
                 if name.endswith(".log") and path.is_file():
                     try:
-                        if path.stat().st_size > 1_048_576:
+                        if path.stat().st_size > self.log_size_bytes:
                             is_sensitive = True
                     except Exception:
                         pass
@@ -805,12 +824,64 @@ class CheckGitignoreTempfiles(Check):
         return issues
 
 
+class ProtectedDocsCheck(Check):
+    name = "protected_docs"
+    principle = "core_principles"
+    practice = "变更确认"
+    severity = "warning"
+    requires_llm = False
+
+    DEFAULT_PROTECTED_DOCUMENTS = [
+        "AGENTS.md",
+        "AGENTS_ABORT.md",
+        "BANNED-AGENT-BEHAVIORS.md",
+        ".nano-coding-agent/config.json",
+    ]
+
+    def run(self, project_root: Path) -> list[Issue]:
+        config = config_loader.resolve_config(project_root)
+        protected = config.get("protected_documents", self.DEFAULT_PROTECTED_DOCUMENTS)
+        try:
+            proc = subprocess.run(
+                ["git", "diff", "--cached", "--name-only"],
+                cwd=str(project_root),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        except Exception:
+            return []
+        if proc.returncode != 0:
+            return []
+        staged_files = [
+            line.strip() for line in proc.stdout.splitlines() if line.strip()
+        ]
+        affected = [f for f in staged_files if f in protected]
+        if affected:
+            return [
+                Issue(
+                    path=None,
+                    line=None,
+                    rule_id="PROTECTED_DOCS_STAGED",
+                    message=f"Staged changes affect protected documents: {', '.join(affected)}. Please review carefully.",
+                    principle=self.principle,
+                    practice=self.practice,
+                    severity=self.severity,
+                )
+            ]
+        return []
+
+
 class CheckCommitSize(Check):
     name = "commit_size"
     principle = "git_commit"
     practice = "提交粒度"
     severity = "warning"
     requires_llm = False
+
+    def __init__(self, max_files: int = 10, max_insertions: int = 500):
+        self.max_files = max_files
+        self.max_insertions = max_insertions
 
     def run(self, project_root: Path) -> list[Issue]:
         try:
@@ -833,7 +904,7 @@ class CheckCommitSize(Check):
             return []
         files_changed = int(m.group(1))
         insertions = int(m.group(2))
-        if files_changed > 10 or insertions > 500:
+        if files_changed > self.max_files or insertions > self.max_insertions:
             return [
                 Issue(
                     path=None,
@@ -934,19 +1005,29 @@ class CheckAgentsLength(Check):
     severity = "warning"
     requires_llm = False
 
+    def __init__(
+        self,
+        max_lines: int = 1000,
+        max_principle_chars: int = 1000,
+        max_practice_chars: int = 150,
+    ):
+        self.max_lines = max_lines
+        self.max_principle_chars = max_principle_chars
+        self.max_practice_chars = max_practice_chars
+
     def run(self, project_root: Path) -> list[Issue]:
         agents_md = project_root / "AGENTS.md"
         if not agents_md.exists():
             return []
         issues: list[Issue] = []
         lines = agents_md.read_text(encoding="utf-8").splitlines()
-        if len(lines) > 1000:
+        if len(lines) > self.max_lines:
             issues.append(
                 Issue(
                     path="AGENTS.md",
                     line=None,
                     rule_id="AGENTS_FILE_TOO_LONG",
-                    message=f"AGENTS.md exceeds 1000 lines ({len(lines)}).",
+                    message=f"AGENTS.md exceeds {self.max_lines} lines ({len(lines)}).",
                     principle=self.principle,
                     practice=self.practice,
                     severity=self.severity,
@@ -955,13 +1036,13 @@ class CheckAgentsLength(Check):
         blocks = extractPrincipleBlocks(agents_md.read_text(encoding="utf-8"))
         for block in blocks:
             total_chars = len(block.title) + len(block.body)
-            if total_chars > 1000:
+            if total_chars > self.max_principle_chars:
                 issues.append(
                     Issue(
                         path="AGENTS.md",
                         line=None,
                         rule_id="PRINCIPLE_BLOCK_TOO_LONG",
-                        message=f'Principle block "{block.title}" exceeds 1000 chars ({total_chars}).',
+                        message=f'Principle block "{block.title}" exceeds {self.max_principle_chars} chars ({total_chars}).',
                         principle=self.principle,
                         practice=self.practice,
                         severity=self.severity,
@@ -969,13 +1050,13 @@ class CheckAgentsLength(Check):
                 )
             for line in block.body.splitlines():
                 if line.strip().startswith("- "):
-                    if len(line) > 150:
+                    if len(line) > self.max_practice_chars:
                         issues.append(
                             Issue(
                                 path="AGENTS.md",
                                 line=None,
                                 rule_id="PRACTICE_LINE_TOO_LONG",
-                                message=f"Practice line exceeds 150 chars: {line[:80]}...",
+                                message=f"Practice line exceeds {self.max_practice_chars} chars: {line[:80]}...",
                                 principle=self.principle,
                                 practice=self.practice,
                                 severity=self.severity,
@@ -987,8 +1068,22 @@ class CheckAgentsLength(Check):
 def build_validation_engine(
     max_lines: int = 1000,
     exclude_dirs: set[str] | None = None,
+    config: dict | None = None,
 ) -> CheckEngine:
     """Build and return a CheckEngine with all validation checks registered."""
+    config = config or {}
+    checks_config = config.get("checks", {})
+
+    file_length_cfg = checks_config.get("file_length", {})
+    file_length_max_lines = file_length_cfg.get("max_lines", max_lines)
+
+    subdir_agents_cfg = checks_config.get("subdir_agents", {})
+    overflow_cfg = checks_config.get("subdir_agents_overflow", {})
+    agents_language_cfg = checks_config.get("agents_language", {})
+    commit_size_cfg = checks_config.get("commit_size", {})
+    agents_length_cfg = checks_config.get("agents_length", {})
+    gitignore_tempfiles_cfg = checks_config.get("gitignore_tempfiles", {})
+
     engine = CheckEngine()
     engine.register(AgentsMdExistsCheck())
     engine.register(AgentsMdHasSectionCheck())
@@ -996,23 +1091,55 @@ def build_validation_engine(
     engine.register(PreCommitHookCheck())
     engine.register(TempDocsCheck())
     engine.register(TestsExistCheck())
-    engine.register(FileLengthCheck(max_lines=max_lines, exclude_dirs=exclude_dirs))
+    engine.register(
+        FileLengthCheck(max_lines=file_length_max_lines, exclude_dirs=exclude_dirs)
+    )
     engine.register(AgentsAbortCheck())
     engine.register(BackgroundMdCheck())
     engine.register(TestSeparationCheck())
     engine.register(TestCommandsCheck())
-    engine.register(CheckSubdirAgents())
+    engine.register(ProtectedDocsCheck())
+    engine.register(
+        CheckSubdirAgents(
+            source_file_threshold=subdir_agents_cfg.get("source_file_threshold", 50),
+            agents_line_threshold=subdir_agents_cfg.get("agents_line_threshold", 500),
+        )
+    )
     engine.register(CheckIndexSummary())
     engine.register(CheckKnowledgeDir())
     engine.register(CheckKnowledgeDirExperience())
-    engine.register(CheckSubdirAgentsOverflow())
-    engine.register(CheckAgentsLanguage())
+    engine.register(
+        CheckSubdirAgentsOverflow(
+            max_lines=overflow_cfg.get("max_lines", 500),
+            max_blocks=overflow_cfg.get("max_blocks", 20),
+        )
+    )
+    engine.register(
+        CheckAgentsLanguage(
+            mixed_ratio=agents_language_cfg.get("mixed_ratio", 0.30),
+        )
+    )
     engine.register(CheckReadmeI18n())
     engine.register(CheckBackgroundContent())
-    engine.register(CheckGitignoreTempfiles())
-    engine.register(CheckCommitSize())
+    engine.register(
+        CheckGitignoreTempfiles(
+            log_size_bytes=gitignore_tempfiles_cfg.get("log_size_bytes", 1048576),
+        )
+    )
+    engine.register(
+        CheckCommitSize(
+            max_files=commit_size_cfg.get("max_files", 10),
+            max_insertions=commit_size_cfg.get("max_insertions", 500),
+        )
+    )
     engine.register(CheckPackageManager())
-    engine.register(CheckAgentsLength())
+    engine.register(
+        CheckAgentsLength(
+            max_lines=agents_length_cfg.get("max_lines", 1000),
+            max_principle_chars=agents_length_cfg.get("max_principle_chars", 1000),
+            max_practice_chars=agents_length_cfg.get("max_practice_chars", 150),
+        )
+    )
     return engine
 
 
@@ -1041,7 +1168,9 @@ def validate_project(
     if isinstance(validate_config.get("ignore_dirs"), list):
         exclude_dirs.update(validate_config["ignore_dirs"])
 
-    engine = build_validation_engine(max_lines=max_lines, exclude_dirs=exclude_dirs)
+    engine = build_validation_engine(
+        max_lines=max_lines, exclude_dirs=exclude_dirs, config=config
+    )
 
     names = [
         "agents_md_exists",

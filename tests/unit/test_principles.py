@@ -358,6 +358,19 @@ class TestMergePrinciplesIntoDocument(unittest.TestCase):
         self.assertIn("## Unrelated", merged.merged_doc)
         self.assertEqual(merged.warnings, [])
 
+    def test_custom_semantic_threshold(self):
+        body_long = "word " * 10
+        doc = f"# Project\n\n## Beta\n\n{body_long}\n"
+        incoming = [PrincipleBlock(title="Alpha", body=body_long)]
+        merged_default = mergePrinciplesIntoDocument(doc, incoming)
+        self.assertEqual(len(merged_default.warnings), 1)
+
+        merged_strict = mergePrinciplesIntoDocument(
+            doc, incoming, semantic_threshold=0.99
+        )
+        self.assertIn("### Alpha", merged_strict.merged_doc)
+        self.assertEqual(merged_strict.warnings, [])
+
 
 if __name__ == "__main__":
     unittest.main()

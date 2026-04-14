@@ -362,7 +362,7 @@ class MergeResult:
 
 
 def mergePrinciplesIntoDocument(
-    doc: str, incoming: list[PrincipleBlock]
+    doc: str, incoming: list[PrincipleBlock], semantic_threshold: float = 0.88
 ) -> MergeResult:
     cleaned = _removeNanoCodingBlock(doc).strip()
     lines = cleaned.split("\n") if cleaned else []
@@ -392,7 +392,7 @@ def mergePrinciplesIntoDocument(
             if idx in blocks_to_remove:
                 continue
             sim = cosineSimilarity(inc_vec, _vectorizeBlock(ex))
-            if sim >= 0.88:
+            if sim >= semantic_threshold:
                 semantic_match_found = True
                 warnings.append(
                     f"[WARN] AGENTS.md 中已存在与原则「{inc.title}」语义相近但标题不同的内容"

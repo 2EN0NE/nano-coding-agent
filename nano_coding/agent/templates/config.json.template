@@ -1,1 +1,49 @@
-{}
+{
+  "validate": {
+    "max_lines": 1000,
+    "ignore_dirs": [
+      ".git",
+      "node_modules",
+      ".venv",
+      "venv",
+      "__pycache__",
+      ".pytest_cache",
+      "dist",
+      "build",
+      ".opencode"
+    ],
+    "rules": []
+  },
+  "semantic_threshold": 0.88,
+  "protected_documents": [
+    "AGENTS.md",
+    "AGENTS_ABORT.md",
+    "BANNED-AGENT-BEHAVIORS.md",
+    ".nano-coding-agent/config.json"
+  ],
+  "checks": {
+    "subdir_agents": {
+      "source_file_threshold": 50,
+      "agents_line_threshold": 500
+    },
+    "agents_language": {
+      "mixed_ratio": 0.30
+    },
+    "commit_size": {
+      "max_files": 10,
+      "max_insertions": 500
+    },
+    "agents_length": {
+      "max_lines": 1000,
+      "max_principle_chars": 1000,
+      "max_practice_chars": 150
+    },
+    "subdir_agents_overflow": {
+      "max_lines": 500,
+      "max_blocks": 20
+    },
+    "gitignore_tempfiles": {
+      "log_size_bytes": 1048576
+    }
+  }
+}

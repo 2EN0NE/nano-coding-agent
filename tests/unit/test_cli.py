@@ -1,13 +1,14 @@
 import importlib
 import os
 import stat
+import subprocess
 import tempfile
 import unittest
 import unittest.mock as mock
 from pathlib import Path
 
 from click.testing import CliRunner
-from nano_coding.skills.guard import install, update, validate
+from nano_coding.skills.guard import confirm_principles, install, update, validate
 
 
 class TestCliInstall(unittest.TestCase):
@@ -210,3 +211,90 @@ class TestCliRootSkills(unittest.TestCase):
         self.assertIn("update", result.output)
         self.assertIn("scan", result.output)
         self.assertIn("principle-review", result.output)
+
+
+class TestCliConfirmPrinciples(unittest.TestCase):
+    """Tests for confirm-principles CLI command."""
+
+    def _init_git(self, root: Path) -> None:
+        subprocess.run(
+            ["git", "init"],
+            cwd=str(root),
+            capture_output=True,
+            check=False,
+        )
+        subprocess.run(
+            ["git", "config", "user.email", "test@test.com"],
+            cwd=str(root),
+            capture_output=True,
+            check=False,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test"],
+            cwd=str(root),
+            capture_output=True,
+            check=False,
+        )
+
+    def test_no_protected_docs_staged(self) -> None:
+        runner = CliRunner()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._init_git(root)
+            result = runner.invoke(confirm_principles, ["--path", str(root)])
+            self.assertEqual(result.exit_code, 0)
+            self.assertEqual(result.output.strip(), "")
+
+    def test_protected_doc_staged_yes_flag(self) -> None:
+        runner = CliRunner()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._init_git(root)
+            (root / "AGENTS.md").write_text("# Project\n")
+            subprocess.run(
+                ["git", "add", "AGENTS.md"],
+                cwd=str(root),
+                capture_output=True,
+                check=False,
+            )
+            result = runner.invoke(confirm_principles, ["--path", str(root), "--yes"])
+            self.assertEqual(result.exit_code, 0)
+            self.assertIn(
+                "Changes to protected documents confirmed via --yes", result.output
+            )
+            self.assertIn("AGENTS.md", result.output)
+
+    def test_protected_doc_staged_interactive_yes(self) -> None:
+        runner = CliRunner()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._init_git(root)
+            (root / "AGENTS.md").write_text("# Project\n")
+            subprocess.run(
+                ["git", "add", "AGENTS.md"],
+                cwd=str(root),
+                capture_output=True,
+                check=False,
+            )
+            result = runner.invoke(
+                confirm_principles, ["--path", str(root)], input="yes\n"
+            )
+            self.assertEqual(result.exit_code, 0)
+
+    def test_protected_doc_staged_interactive_no(self) -> None:
+        runner = CliRunner()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._init_git(root)
+            (root / "AGENTS.md").write_text("# Project\n")
+            subprocess.run(
+                ["git", "add", "AGENTS.md"],
+                cwd=str(root),
+                capture_output=True,
+                check=False,
+            )
+            result = runner.invoke(
+                confirm_principles, ["--path", str(root)], input="no\n"
+            )
+            self.assertEqual(result.exit_code, 1)
+            self.assertIn("Aborting commit", result.output)
