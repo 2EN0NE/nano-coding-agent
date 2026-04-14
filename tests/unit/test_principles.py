@@ -9,6 +9,7 @@ from nano_coding.core.principles import (
     extractPrincipleBlocksFromDocument,
     hasDuplicate,
     mergePrinciplesIntoDocument,
+    MergeResult,
     normalizeTitle,
     parseDocument,
     PrincipleBlock,
@@ -247,22 +248,23 @@ class TestMergePrinciplesIntoDocument(unittest.TestCase):
         doc = "# Existing doc\n\nSome content.\n"
         incoming = [PrincipleBlock(title="Block A", body="Body A")]
         merged1 = mergePrinciplesIntoDocument(doc, incoming)
-        merged2 = mergePrinciplesIntoDocument(merged1, incoming)
-        self.assertEqual(merged1, merged2)
+        merged2 = mergePrinciplesIntoDocument(merged1.merged_doc, incoming)
+        self.assertEqual(merged1.merged_doc, merged2.merged_doc)
 
     def test_prepends_generated_block(self):
         doc = "# Project\n\n## Existing\nBody\n"
         incoming = [PrincipleBlock(title="New Block", body="New body")]
         merged = mergePrinciplesIntoDocument(doc, incoming)
-        lines = merged.split("\n")
+        lines = merged.merged_doc.split("\n")
         start_idx = lines.index("<!-- NANO_CODING_GENERATED_START -->")
         end_idx = lines.index("<!-- NANO_CODING_GENERATED_END -->")
         existing_header_idx = lines.index("# Project")
         self.assertLess(end_idx, existing_header_idx)
-        self.assertIn("## 基础原则", merged)
-        self.assertIn("New Block", merged)
-        self.assertIn("New body", merged)
-        self.assertIn("## Existing", merged)
+        self.assertIn("## 基础原则", merged.merged_doc)
+        self.assertIn("New Block", merged.merged_doc)
+        self.assertIn("New body", merged.merged_doc)
+        self.assertIn("## Existing", merged.merged_doc)
+        self.assertEqual(merged.warnings, [])
 
     def test_removes_old_block_before_inserting_new(self):
         old_block = (
@@ -275,10 +277,10 @@ class TestMergePrinciplesIntoDocument(unittest.TestCase):
         doc = old_block + "# Project\n\nContent.\n"
         incoming = [PrincipleBlock(title="New Block", body="New body")]
         merged = mergePrinciplesIntoDocument(doc, incoming)
-        self.assertIn("New Block", merged)
-        self.assertNotIn("Old Block", merged)
-        self.assertIn("# Project", merged)
-        count_start = merged.count("<!-- NANO_CODING_GENERATED_START -->")
+        self.assertIn("New Block", merged.merged_doc)
+        self.assertNotIn("Old Block", merged.merged_doc)
+        self.assertIn("# Project", merged.merged_doc)
+        count_start = merged.merged_doc.count("<!-- NANO_CODING_GENERATED_START -->")
         self.assertEqual(count_start, 1)
 
     def test_removes_block_when_no_incoming(self):
@@ -291,51 +293,70 @@ class TestMergePrinciplesIntoDocument(unittest.TestCase):
         )
         doc = old_block + "# Project\n"
         merged = mergePrinciplesIntoDocument(doc, [])
-        self.assertNotIn("NANO_CODING_GENERATED_START", merged)
-        self.assertNotIn("## 基础原则", merged)
-        self.assertIn("# Project", merged)
+        self.assertNotIn("NANO_CODING_GENERATED_START", merged.merged_doc)
+        self.assertNotIn("## 基础原则", merged.merged_doc)
+        self.assertIn("# Project", merged.merged_doc)
 
     def test_creates_block_in_empty_doc(self):
         incoming = [PrincipleBlock(title="Block A", body="Body A")]
         merged = mergePrinciplesIntoDocument("", incoming)
-        self.assertTrue(merged.startswith("<!-- NANO_CODING_GENERATED_START -->"))
-        self.assertIn("## 基础原则", merged)
-        self.assertIn("Block A", merged)
-
-    def test_skips_duplicate_in_manual_section_by_title(self):
-        doc = (
-            "# Project\n\n"
-            "## 多环境分支策略\n\n"
-            "采用四分支环境模型...\n\n"
-            "## Existing\nBody\n"
+        self.assertTrue(
+            merged.merged_doc.startswith("<!-- NANO_CODING_GENERATED_START -->")
         )
-        incoming = [
-            PrincipleBlock(title="多环境分支策略", body="采用四分支环境模型...")
-        ]
-        merged = mergePrinciplesIntoDocument(doc, incoming)
-        self.assertNotIn("### 多环境分支策略", merged)
-        self.assertIn("## 多环境分支策略", merged)
-        self.assertIn("## Existing", merged)
+        self.assertIn("## 基础原则", merged.merged_doc)
+        self.assertIn("Block A", merged.merged_doc)
 
-    def test_skips_duplicate_in_manual_section_with_tags(self):
-        doc = "# Project\n\n## [suggest] 多环境分支策略\n\n采用四分支环境模型...\n"
-        incoming = [
-            PrincipleBlock(title="多环境分支策略", body="采用四分支环境模型...")
-        ]
+    def test_replaces_exact_title_match_in_manual_section(self):
+        doc = "# Project\n\n## 多环境分支策略\n\n旧版本内容...\n\n## Existing\nBody\n"
+        incoming = [PrincipleBlock(title="多环境分支策略", body="新版本内容...")]
         merged = mergePrinciplesIntoDocument(doc, incoming)
-        self.assertNotIn("### 多环境分支策略", merged)
-        self.assertIn("## [suggest] 多环境分支策略", merged)
+        self.assertIn("### 多环境分支策略", merged.merged_doc)
+        self.assertIn("新版本内容...", merged.merged_doc)
+        self.assertNotIn("旧版本内容...", merged.merged_doc)
+        self.assertIn("## Existing", merged.merged_doc)
+        self.assertEqual(merged.warnings, [])
 
-    def test_keeps_unique_incoming_blocks(self):
+    def test_replaces_tagged_manual_section_with_updated_version(self):
+        doc = "# Project\n\n## [suggest] 多环境分支策略\n\n旧版本...\n"
+        incoming = [PrincipleBlock(title="多环境分支策略", body="新版本...")]
+        merged = mergePrinciplesIntoDocument(doc, incoming)
+        self.assertIn("### 多环境分支策略", merged.merged_doc)
+        self.assertIn("新版本...", merged.merged_doc)
+        self.assertNotIn("旧版本...", merged.merged_doc)
+        self.assertNotIn("## [suggest] 多环境分支策略", merged.merged_doc)
+
+    def test_keeps_unique_incoming_blocks_and_replaces_exact_matches(self):
         doc = "# Project\n\n## Existing Manual\n\nExisting body\n"
         incoming = [
             PrincipleBlock(title="New Block", body="New body"),
             PrincipleBlock(title="Existing Manual", body="Different body"),
         ]
         merged = mergePrinciplesIntoDocument(doc, incoming)
-        self.assertIn("### New Block", merged)
-        self.assertNotIn("### Existing Manual", merged)
-        self.assertIn("## Existing Manual", merged)
+        self.assertIn("### New Block", merged.merged_doc)
+        self.assertIn("### Existing Manual", merged.merged_doc)
+        self.assertIn("Different body", merged.merged_doc)
+        self.assertNotIn("\n## Existing Manual\n", merged.merged_doc)
+        self.assertNotIn("Existing body", merged.merged_doc)
+
+    def test_warns_on_semantic_match_with_different_title(self):
+        body_long = "word " * 10
+        doc = f"# Project\n\n## Beta\n\n{body_long}\n"
+        incoming = [PrincipleBlock(title="Alpha", body=body_long)]
+        merged = mergePrinciplesIntoDocument(doc, incoming)
+        self.assertNotIn("### Alpha", merged.merged_doc)
+        self.assertIn("## Beta", merged.merged_doc)
+        self.assertEqual(len(merged.warnings), 1)
+        self.assertIn("语义相近但标题不同", merged.warnings[0])
+        self.assertIn("Alpha", merged.warnings[0])
+        self.assertIn("Beta", merged.warnings[0])
+
+    def test_no_warning_for_unrelated_blocks(self):
+        doc = "# Project\n\n## Unrelated\n\ncompletely different content here\n"
+        incoming = [PrincipleBlock(title="New Block", body="new body text")]
+        merged = mergePrinciplesIntoDocument(doc, incoming)
+        self.assertIn("### New Block", merged.merged_doc)
+        self.assertIn("## Unrelated", merged.merged_doc)
+        self.assertEqual(merged.warnings, [])
 
 
 if __name__ == "__main__":

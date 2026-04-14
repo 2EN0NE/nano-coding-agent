@@ -312,17 +312,131 @@ def extractPrincipleBlocksFromDocument(content: str) -> list[PrincipleBlock]:
     return blocks
 
 
-def mergePrinciplesIntoDocument(doc: str, incoming: list[PrincipleBlock]) -> str:
+def extractPrincipleBlocksFromDocumentWithRanges(
+    content: str,
+) -> list[tuple[PrincipleBlock, int, int]]:
+    """Extract principle blocks with their (start_line, end_line) ranges."""
+    lines = content.split("\n")
+    blocks: list[tuple[PrincipleBlock, int, int]] = []
+    current_title = ""
+    current_body: list[str] = []
+    start_idx = -1
+
+    for i, line in enumerate(lines):
+        if re.match(r"^#{2,3}\s+", line):
+            if current_title:
+                blocks.append(
+                    (
+                        PrincipleBlock(
+                            title=current_title,
+                            body="\n".join(current_body).strip(),
+                        ),
+                        start_idx,
+                        i,
+                    )
+                )
+            current_title = re.sub(r"^#{2,3}\s+", "", line).strip()
+            current_body = []
+            start_idx = i
+        else:
+            current_body.append(line)
+
+    if current_title:
+        blocks.append(
+            (
+                PrincipleBlock(
+                    title=current_title, body="\n".join(current_body).strip()
+                ),
+                start_idx,
+                len(lines),
+            )
+        )
+
+    return blocks
+
+
+@dataclass
+class MergeResult:
+    merged_doc: str
+    warnings: list[str]
+
+
+def mergePrinciplesIntoDocument(
+    doc: str, incoming: list[PrincipleBlock]
+) -> MergeResult:
     cleaned = _removeNanoCodingBlock(doc).strip()
+    lines = cleaned.split("\n") if cleaned else []
+    existing_with_ranges = extractPrincipleBlocksFromDocumentWithRanges(cleaned)
 
-    existing = extractPrincipleBlocksFromDocument(cleaned)
-    unique_incoming = [b for b in incoming if not hasDuplicate(b, existing)]
+    warnings: list[str] = []
+    blocks_to_remove: set[int] = set()
+    incoming_to_add: list[PrincipleBlock] = []
 
-    if not unique_incoming:
-        return cleaned + "\n" if cleaned else ""
+    for inc in incoming:
+        inc_title_norm = normalizeTitle(inc.title)
+        exact_match_indices = [
+            idx
+            for idx, (ex, _start, _end) in enumerate(existing_with_ranges)
+            if normalizeTitle(ex.title) == inc_title_norm
+        ]
+
+        if exact_match_indices:
+            for idx in exact_match_indices:
+                blocks_to_remove.add(idx)
+            incoming_to_add.append(inc)
+            continue
+
+        inc_vec = _vectorizeBlock(inc)
+        semantic_match_found = False
+        for idx, (ex, _start, _end) in enumerate(existing_with_ranges):
+            if idx in blocks_to_remove:
+                continue
+            sim = cosineSimilarity(inc_vec, _vectorizeBlock(ex))
+            if sim >= 0.88:
+                semantic_match_found = True
+                warnings.append(
+                    f"[WARN] AGENTS.md 中已存在与原则「{inc.title}」语义相近但标题不同的内容"
+                    f"「{ex.title}」，建议参考原则「{inc.title}」修改该部分，因为这些验证"
+                    f"有对应保护技能可以让 Agent 直接执行。"
+                )
+                break
+
+        if not semantic_match_found:
+            incoming_to_add.append(inc)
+
+    remove_ranges: list[tuple[int, int]] = []
+    for idx in blocks_to_remove:
+        _ex, start, end = existing_with_ranges[idx]
+        remove_ranges.append((start, end))
+
+    remove_ranges.sort()
+    merged_ranges: list[tuple[int, int]] = []
+    for start, end in remove_ranges:
+        if merged_ranges and start <= merged_ranges[-1][1]:
+            merged_ranges[-1] = (
+                merged_ranges[-1][0],
+                max(merged_ranges[-1][1], end),
+            )
+        else:
+            merged_ranges.append((start, end))
+
+    remaining_lines: list[str] = []
+    last_end = 0
+    for start, end in merged_ranges:
+        remaining_lines.extend(lines[last_end:start])
+        last_end = end
+    remaining_lines.extend(lines[last_end:])
+
+    new_cleaned = "\n".join(remaining_lines).strip()
+
+    if not incoming_to_add:
+        return MergeResult(
+            merged_doc=new_cleaned + "\n" if new_cleaned else "",
+            warnings=warnings,
+        )
 
     blocks_body = "\n\n".join(
-        f"---\n\n### {b.title}\n\n{b.body}" for b in unique_incoming
+        f"---\n\n### {b.title}\n\n{b.body}" for b in incoming_to_add
     )
     generated_section = (
         f"{NANO_CODING_START}\n"
@@ -332,6 +446,12 @@ def mergePrinciplesIntoDocument(doc: str, incoming: list[PrincipleBlock]) -> str
         f"{NANO_CODING_END}"
     )
 
-    if cleaned:
-        return generated_section + "\n\n" + cleaned + "\n"
-    return generated_section + "\n"
+    if new_cleaned:
+        return MergeResult(
+            merged_doc=generated_section + "\n\n" + new_cleaned + "\n",
+            warnings=warnings,
+        )
+    return MergeResult(
+        merged_doc=generated_section + "\n",
+        warnings=warnings,
+    )

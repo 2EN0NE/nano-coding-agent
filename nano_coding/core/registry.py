@@ -66,7 +66,7 @@ def collect_principle_status(
     for principle, practices in registry.items():
         result[principle] = {}
         for practice_name, command_paths_list in practices.items():
-            any_in_hooks = any(" ".join(cp) in hooks_text for cp in command_paths_list)
+            any_in_hooks = any(p in hooks_text for cp in command_paths_list for p in cp)
             result[principle][practice_name] = {
                 "command_paths": command_paths_list[0] if command_paths_list else [],
                 "in_hooks": any_in_hooks,

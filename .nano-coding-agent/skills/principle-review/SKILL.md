@@ -9,11 +9,11 @@ principles:
 ---
 审查目标项目的核心指导原则合规性。
 
-    Examples:
+Examples:
 
-        $ uv run nano-coding principle-review .
-        $ uv run nano-coding principle-review . --check-changes
-    
+    $ uv run nano-coding principle-review .
+    $ uv run nano-coding principle-review . --check-changes
+
 
 ## Parameters
 - `<target_dir>`

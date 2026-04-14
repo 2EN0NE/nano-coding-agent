@@ -1,49 +1,79 @@
 # 目录结构设计
 
-本文档描述 Vibe Coding 脚手架的目录设计原则和组织方式。
+本文档描述 nano-coding 项目的目录设计原则和组织方式。
 
 ## 设计原则
 
-1. **可移植性**: 整个 `.vibe-coding-workflow/` 目录可作为模板复制到新项目
+1. **可移植性**: 整个 `.nano-coding-agent/` 目录可作为模板复制到新项目
 2. **关注点分离**: 不同类型的配置和代码放在对应目录
-3. **动态生成**: 部分文件通过脚本自动生成（如 AGENTS.md）
+3. **动态生成**: 部分文件通过脚本自动生成（如 AGENTS.md 的合并更新）
 
 ## 目录对照表
 
 | 功能类型 | 目录位置 | 说明 |
 |---------|---------|------|
-| Agent 定义 | `.vibe-coding-workflow/agents/` | AI Agent 的行为规范和约定 |
-| Git Hooks | `.vibe-coding-workflow/hooks/` | 提交前的自动化检查 |
-| 评估配置 | `.vibe-coding-workflow/evals/` | LLM 输出质量评估 |
-| 脚本工具 | `.vibe-coding-workflow/scripts/` | 辅助脚本（如文档生成）|
-| 工作流配置 | `.vibe-coding-workflow/workflow.yaml` | 统一的配置入口 |
-| 知识库 | `knowledge/` | 项目特有的知识积累 |
-| Git Hooks 安装 | `.husky/` | Git 钩子脚本（pre-commit, post-commit）|
+| CLI 入口 | `nano_coding/cli.py` | Click 命令注册和本地 skill 发现 |
+| 内置命令 | `nano_coding/skills/` | `validate`、`scan`、`install`、`update` 等内置子命令 |
+| 核心引擎 | `nano_coding/core/` | `validator.py`、`scanner.py`、`check_engine.py`、`registry.py` 等共享逻辑 |
+| 项目配置 | `.nano-coding-agent/` | 项目级 Agent 上下文空间（配置文件、skill、钩子、原则块）|
+| 原则块 | `.nano-coding-agent/principles/` 或 `principles/` | 原则源文件，供 `update` 合并到 AGENTS.md |
+| 测试代码 | `tests/` | 单元测试（`tests/unit/`）和集成测试（`tests/integration/`）|
+| 知识库 | `knowledge/` | 项目特有的知识积累和经验沉淀 |
+| Git Hooks 安装 | `.nano-coding-agent/hooks/` 和 `.git/hooks/` | 项目级钩子脚本和全局调度脚本 |
 
 ## 详细说明
 
-### .vibe-coding-workflow/ (核心工作流)
+### nano_coding/ (CLI 包)
 
-这是脚手架的核心目录，设计为可移植单元：
+这是 `nano-coding` 命令的 Python 包，分为三层：
 
 ```
-.vibe-coding-workflow/
-├── workflow.yaml          # 统一配置入口
-├── agents/               # Agent 规范定义
-│   ├── AGENTS.md
-│   └── CONVENTIONS.md
-├── hooks/                # Hook 框架
-│   ├── __init__.py       # BaseHook 接口
-│   ├── runner.py         # Hook 调度器
-│   ├── hooks.yaml        # Hook 配置
-│   ├── requirements.txt
-│   └── implementations/  # Hook 实现
-│       ├── audit.py      # 审阅 Agent
-│       └── guard.py   # 安全扫描
-├── evals/                # 评估配置
-│   └── deepeval_config.py
-└── scripts/              # 辅助脚本
-    └── generate_docs.py  # 文档生成
+nano_coding/
+├── cli.py                 # 根命令和 skill 注册
+├── skills/               # 内置子命令实现
+│   ├── guard.py          # install / validate / update / scan
+│   └── principle_review.py
+└── core/                 # 共享核心逻辑
+    ├── validator.py      # validate 报告格式化
+    ├── scanner.py        # 安全扫描和审计扫描
+    ├── check_engine.py   # CheckEngine / Check / Issue 抽象（refactor 后）
+    ├── registry.py       # @register_practice 装饰器和原则状态收集
+    ├── principles.py     # 原则块提取与合并
+    ├── config_loader.py  # 多级配置解析
+    ├── installer.py      # nano-coding install 实现
+    ├── local_skill_loader.py  # 本地 skill 发现与加载
+    └── ...
+```
+
+### .nano-coding-agent/ (项目级上下文)
+
+运行 `nano-coding install <project>` 后，目标项目会生成此目录。它是项目与 CLI 交互的本地空间：
+
+```
+.nano-coding-agent/
+├── config.json          # 项目级配置（JSON）
+├── AGENTS.md            # 项目级Agent上下文文档
+├── version              # 初始化时的CLI版本号
+├── skills/              # 本地技能目录
+│   └── {skill-name}/
+│       ├── SKILL.md     # 技能的YAML frontmatter + Markdown说明
+│       ├── __init__.py  # 可选，Python技能入口
+│       ├── main.py      # 可选，Python技能入口
+│       └── cli.py       # 可选，Python技能入口
+├── hooks/               # Git钩子脚本
+│   └── pre-commit
+└── principles/          # 原则块文件
+    └── core.md
+```
+
+### tests/ (测试)
+
+测试按类型严格分离：
+
+```
+tests/
+├── unit/               # 单元测试（无外部依赖）
+└── integration/        # 集成测试（可能调用子进程或临时目录）
 ```
 
 ### knowledge/ (知识库)
@@ -52,74 +82,58 @@
 
 ```
 knowledge/
-├── directory-structure.md  # 本文档
-├── README.md             # 知识库索引
-└── *.md                  # 其他主题知识
+├── directory-structure.md   # 本文档
+├── validate-scan-design.md  # validate/scan 重构设计
+├── testing-strategy.md      # 测试策略与反模式
+├── security-coding.md       # 安全编码实践
+├── README.md                # 知识库索引
+└── *.md                     # 其他主题知识
 ```
 
 添加新知识的规则：
 - 文档用 Markdown 格式
 - 文件名使用 kebab-case
-- 在 README.md 中添加索引
+- 在 `README.md` 中添加索引
 
-### docs/ (模板文档)
+### principles/ (原则块源文件)
 
-包含模板源文件，供生成器使用：
-
-```
-docs/
-├── agents-core.md              # Agent 核心规范（模板）
-├── agents-scaffold-specific.md # 脚手架特有规范（模板）
-└── ...                        # 其他文档模板
-```
-
-注意：`agents-scaffold-specific.md` 是脚放架特有的规范，会在生成 AGENTS.md 时被包含。
-
-### scripts/ (项目脚本)
-
-项目级别的辅助脚本（非工作流相关）：
+本仓库（nano-coding 自身）的原则块存放位置。`nano-coding update` 会读取该目录下的 `.md` 文件，合并到 `AGENTS.md`：
 
 ```
-scripts/
-├── audit_agent.py   # （已迁移到 hooks/）
-└── guard.py      # （已迁移到 hooks/）
+principles/
+└── core.md              # 核心原则块源文件
 ```
 
-### .husky/ (Git Hooks)
-
-Git 钩子安装目录：
-
-```
-.husky/
-├── pre-commit     # 提交前检查
-└── post-commit    # 提交后生成文档
-```
+注意：新项目初始化后，原则块默认存放在 `.nano-coding-agent/principles/`；本仓库由于历史原因同时保留根目录 `principles/`，`update` 命令会优先读取 `.nano-coding-agent/principles/`，找不到时回退到根目录 `principles/`。
 
 ## 添加新功能的目录选择
 
 当需要添加新功能时，按以下规则选择目录：
 
-1. **如果是对 Agent 的规范约束** → `.vibe-coding-workflow/agents/`
-2. **如果是自动化检查/验证** → `.vibe-coding-workflow/hooks/implementations/`
-3. **如果是 LLM 评估** → `.vibe-coding-workflow/evals/`
-4. **如果是辅助脚本** → `.vibe-coding-workflow/scripts/`
-5. **如果是项目知识/经验** → `knowledge/`
-6. **如果是模板源文件** → `docs/`
-7. **如果是 Git 钩子** → `.husky/`
+1. **如果是新的 CLI 子命令** → `nano_coding/skills/`
+2. **如果是 validate/scan 共享的检查逻辑** → `nano_coding/core/check_engine.py`（或 `nano_coding/core/checks/`）
+3. **如果是配置解析、skill 加载等共享基础设施** → `nano_coding/core/`
+4. **如果是项目级 Agent 规范或原则块** → `.nano-coding-agent/principles/`（新项目）或 `principles/`（本仓库）
+5. **如果是项目级自定义 skill** → `.nano-coding-agent/skills/`
+6. **如果是项目级 Git 钩子** → `.nano-coding-agent/hooks/`
+7. **如果是项目知识/经验** → `knowledge/`
+8. **如果是单元/集成测试** → `tests/unit/` / `tests/integration/`
 
 ## 配置文件优先级
 
 ```
-workflow.yaml (统一配置)
+.nano-coding-agent/config.json (项目级配置)
     ↓
-hooks.yaml (Hook 配置)
+~/.nano-coding-agent/config.json (用户目录级配置)
     ↓
-各模块独立配置
+内置默认值
 ```
+
+配置系统采用三层合并策略，高优先级配置递归覆盖低优先级的同名键。
 
 ## 扩展计划
 
 未来可能添加的目录：
 
-- `.vibe-coding-workflow/skills/` - 自定义技能定义
-- `.vibe-coding-workflow/mcp/` - MCP 服务器配置
+- `nano_coding/skills/mcp/` - MCP 服务器内置 skill
+- `.nano-coding-agent/evals/` - 本地评估配置

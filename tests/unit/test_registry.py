@@ -51,7 +51,7 @@ class TestRegistry(unittest.TestCase):
             "Principle A",
             {
                 "practice_1": ["nano-coding", "scan"],
-                "practice_2": ["nano-coding", "other", "cmd"],
+                "practice_2": ["deploy", "prod"],
             },
         )
         def dummy():
@@ -71,6 +71,27 @@ class TestRegistry(unittest.TestCase):
         self.assertTrue(result["Principle A"]["practice_1"]["in_hooks"])
         self.assertEqual(
             result["Principle A"]["practice_2"]["command_paths"],
-            ["nano-coding", "other", "cmd"],
+            ["deploy", "prod"],
         )
         self.assertFalse(result["Principle A"]["practice_2"]["in_hooks"])
+
+    def test_validate_command_paths_regression(self) -> None:
+        _REGISTRY.clear()
+
+        @register_practice(
+            "Guardrails",
+            {"禁止操作": ["validate", "validate --check-agents-abort"]},
+        )
+        def dummy():
+            pass
+
+        with tempfile.TemporaryDirectory() as tmp:
+            hooks_dir = Path(tmp) / ".git" / "hooks"
+            hooks_dir.mkdir(parents=True)
+            (hooks_dir / "pre-commit").write_text(
+                "python3 -m nano_coding.cli validate .\n"
+            )
+
+            result = collect_principle_status(target_dir=tmp)
+
+        self.assertTrue(result["Guardrails"]["禁止操作"]["in_hooks"])

@@ -79,12 +79,12 @@ class TestValidator(unittest.TestCase):
                 self._messages(result["blocking"]),
             )
 
-    def test_file_exceeds_max_lines_fails(self) -> None:
-        """A tracked source file exceeding max_lines should be blocking."""
+    def test_document_exceeds_max_lines_fails(self) -> None:
+        """A markdown document exceeding max_lines should be blocking."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._create_valid_project(root)
-            long_file = root / "long.py"
+            long_file = root / "long.md"
             long_file.write_text("\n".join([f"line {i}" for i in range(1001)]))
 
             result = validate_project(str(root))

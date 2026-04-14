@@ -41,12 +41,18 @@ class TestCliValidate(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / "AGENTS.md").write_text("# Project\n\n## 基础原则\nSome rules.\n")
+            (root / "BACKGROUND.md").write_text("# Background\nProject vision.\n")
+            (root / "BANNED-AGENT-BEHAVIORS.md").write_text(
+                "# Banned behaviors\nDon't do X.\n"
+            )
             pre_commit = root / ".git" / "hooks" / "pre-commit"
             pre_commit.parent.mkdir(parents=True)
             pre_commit.write_text("#!/bin/bash\necho hook\n")
             pre_commit.chmod(pre_commit.stat().st_mode | stat.S_IXUSR)
-            (root / "tests").mkdir()
-            (root / "tests" / "dummy.py").write_text("pass\n")
+            (root / "tests" / "unit").mkdir(parents=True)
+            (root / "tests" / "integration").mkdir()
+            (root / "tests" / "unit" / "dummy.py").write_text("pass\n")
+            (root / "README.md").write_text("# Project\n\nRun tests: `pytest -v`\n")
 
             result = runner.invoke(validate, [str(root)])
             self.assertEqual(result.exit_code, 0)

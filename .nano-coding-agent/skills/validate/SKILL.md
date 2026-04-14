@@ -13,12 +13,12 @@ principles:
 ---
 验证项目是否满足基础治理规则。
 
-    Examples:
+Examples:
 
-        $ uv run nano-coding validate .
-        $ uv run nano-coding validate . --check-agents-abort --check-background
-        $ uv run nano-coding validate . --interactive
-    
+    $ uv run nano-coding validate .
+    $ uv run nano-coding validate . --check-agents-abort --check-background
+    $ uv run nano-coding validate . --interactive
+
 
 ## Parameters
 - `<target_dir>`
