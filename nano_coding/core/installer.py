@@ -63,13 +63,13 @@ def install_agent(target_dir: str) -> None:
     config_file = agent_dir / "config.json"
     if not config_file.exists():
         config_file.write_text(
-            _read_agent_text("templates/config.json"), encoding="utf-8"
+            _read_agent_text("templates/config.json.template"), encoding="utf-8"
         )
 
     agents_md_file = agent_dir / "AGENTS.md"
     if not agents_md_file.exists():
         agents_md_file.write_text(
-            _read_agent_text("templates/AGENTS.md"), encoding="utf-8"
+            _read_agent_text("templates/AGENTS.md.template"), encoding="utf-8"
         )
 
     source_principles = (
@@ -79,9 +79,13 @@ def install_agent(target_dir: str) -> None:
     if not dest_principles.exists():
         shutil.copy(str(source_principles), str(dest_principles))
 
-    source_hook = Path(__file__).resolve().parent.parent / "hooks" / "pre-commit"
     dest_hook = agent_dir / "hooks" / "pre-commit"
-    shutil.copy(str(source_hook), str(dest_hook))
+    dest_hook.write_text(
+        _read_agent_text("hooks/pre-commit.template"), encoding="utf-8"
+    )
+    dest_hook.chmod(
+        dest_hook.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+    )
 
     skill_generator.write_skills_to_agent_dir(
         agent_dir, force=False, names=BUILTIN_SKILL_NAMES
@@ -89,7 +93,9 @@ def install_agent(target_dir: str) -> None:
 
     global_hook = git_dir / "hooks" / "pre-commit"
     global_hook.parent.mkdir(parents=True, exist_ok=True)
-    global_hook.write_text(_read_agent_text("hooks/pre-commit"), encoding="utf-8")
+    global_hook.write_text(
+        _read_agent_text("hooks/pre-commit.template"), encoding="utf-8"
+    )
     global_hook.chmod(
         global_hook.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
     )
