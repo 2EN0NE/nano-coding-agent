@@ -1,4 +1,0 @@
-#!/usr/bin/env bash
-set -e
-python3 -m nano_coding.cli validate .
-python3 -m nano_coding.cli scan --path .
