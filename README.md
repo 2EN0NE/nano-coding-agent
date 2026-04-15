@@ -103,6 +103,24 @@ uv run nano-coding principle-review . --check-changes
 
 > `principles/core.md` 中不再包含手动标签；运行 `nano-coding update` 时，系统会根据 `skills/` 目录中各命令的实现与 CI/CD hooks 的集成情况，自动为原则标题和实践条目生成 `[suggest]`、`[support]` 或 `[control]` 等标签。
 
+### `uv run nano-coding ai-review <project>`
+使用大模型对项目进行语义级审核，覆盖文档质量、原则一致性等静态分析难以检查的维度。
+
+- `--review-type`：审核类型，可选 `general`（默认）或 `agents-md`。
+- `--json`：以 JSON 格式输出审核结果，便于程序化消费。
+- `--model`：指定使用的 LLM 模型，格式为 `provider:modelId`（例如 `kimi-coding:k2p5`）。
+
+使用示例：
+
+```bash
+uv run nano-coding ai-review .
+uv run nano-coding ai-review . --review-type agents-md
+uv run nano-coding ai-review . --json
+```
+
+配置说明：
+- 需要在 `.nano-coding-agent/config.yaml` 中配置 `ai:` 段，或设置环境变量 `KIMI_API_KEY` / `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`。
+
 ## 本地 skill 优先机制
 
 `nano-coding` 支持在项目级 `.nano-coding-agent/skills/` 目录中定义本地 skill。本地 skill 的加载遵循以下规则：

@@ -38,6 +38,18 @@
 
 ---
 
+### [suggest] AI 辅助审核原则
+
+原则：对于静态代码分析无法覆盖的语义性原则（如文档质量、原则一致性、禁止项有效性），可引入大模型进行辅助审核。
+
+实践：
+- [suggest] - 使用 `nano-coding ai-review` 对 AGENTS.md、BACKGROUND.md 等文档进行语义级审查。
+- [control] - LLM 审核结果仅作为建议，不自动执行任何修改。
+- [control] - 核心指导原则的变更仍需人类亲自确认。
+- [support] - 在 `.nano-coding-agent/config.yaml` 中配置 `ai:` 段，明确使用的模型和审核范围。
+
+---
+
 ### [suggest] 示例重于描述原则 (Show, Don't Tell)
 
 原则： 一个真实的代码片段胜过三段文字描述，抽象原则之后最好给出具体举例。
