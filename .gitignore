@@ -225,3 +225,5 @@ __marimo__/
 
 # nano-coding-agent local configuration
 .nano-coding-agent/
+
+.nano-coding-agent/pi/node_modules/

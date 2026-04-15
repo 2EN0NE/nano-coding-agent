@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import shutil
 import stat
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -74,6 +75,78 @@ def _filter_available_skills(clis: dict[str, bool]) -> list[dict[str, Any]]:
         if all(clis.get(r, False) for r in reqs):
             available.append(skill)
     return available
+
+
+def _check_node_installed() -> bool:
+    try:
+        subprocess.run(
+            ["node", "--version"], capture_output=True, text=True, check=True
+        )
+        subprocess.run(["npm", "--version"], capture_output=True, text=True, check=True)
+        return True
+    except Exception:
+        return False
+
+
+def _install_pi_runtime(target: Path) -> None:
+    if not _check_node_installed():
+        click.echo(
+            "[ERROR] Node.js is required for AI review features. Please install Node.js 20+ from https://nodejs.org/"
+        )
+        return
+
+    pi_dir = target / ".nano-coding-agent" / "pi"
+    pi_dir.mkdir(parents=True, exist_ok=True)
+
+    pkg_json = pi_dir / "package.json"
+    try:
+        pkg_content = _read_agent_text("templates/pi/package.json")
+    except Exception:
+        pkg_content = (
+            "{\n"
+            '  "name": "nano-coding-agent-pi-runtime",\n'
+            '  "version": "1.0.0",\n'
+            '  "private": true,\n'
+            '  "dependencies": {\n'
+            '    "picocolors": "^1.0.0"\n'
+            "  }\n"
+            "}\n"
+        )
+    pkg_json.write_text(pkg_content, encoding="utf-8")
+
+    for template_name in ["pi_runner.ts", "permission_gate.ts", "tsconfig.json"]:
+        dest = pi_dir / template_name
+        try:
+            content = _read_agent_text(f"templates/pi/{template_name}")
+            dest.write_text(content, encoding="utf-8")
+        except Exception:
+            pass
+
+    try:
+        subprocess.run(
+            ["npm", "install", "--prefix", str(pi_dir)],
+            capture_output=True,
+            text=True,
+            timeout=300,
+            check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        err = (e.stderr or e.stdout or "unknown error").strip()
+        click.echo(f"[WARN] Failed to install pi runtime dependencies: {err}")
+    except subprocess.TimeoutExpired:
+        click.echo("[WARN] npm install timed out after 300s")
+    except Exception as e:
+        click.echo(f"[WARN] Failed to install pi runtime dependencies: {e}")
+
+    gitignore = target / ".gitignore"
+    ignore_line = ".nano-coding-agent/pi/node_modules/"
+    if gitignore.exists():
+        existing = gitignore.read_text(encoding="utf-8")
+        if ignore_line not in existing:
+            with gitignore.open("a", encoding="utf-8") as f:
+                f.write(f"\n{ignore_line}\n")
+    else:
+        gitignore.write_text(f"{ignore_line}\n", encoding="utf-8")
 
 
 def _clean_existing_installation(target: Path) -> None:
@@ -317,6 +390,8 @@ def install_agent(target_dir: str, interactive: bool = False) -> None:
     else:
         _install_skills_to_agent_dir(agent_dir, selected_skills)
         _install_hooks(target, agent_dir, selected_hooks)
+
+    _install_pi_runtime(target)
 
     click.echo(f"Installed nano-coding agent to {agent_dir}")
     if selected_hooks:
