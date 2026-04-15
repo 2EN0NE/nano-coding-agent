@@ -150,11 +150,15 @@ celerybeat.pid
 .env.docker
 .envrc
 .venv
+.venv-integration/
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Integration test sandbox
+.sandbox-integration/
 
 # Spyder project settings
 .spyderproject
@@ -218,3 +222,6 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 .opencode/
+
+# nano-coding-agent local configuration
+.nano-coding-agent/
