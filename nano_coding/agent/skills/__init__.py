@@ -6,4 +6,5 @@ BUILTIN_SKILL_NAMES: list[str] = [
     "update",
     "scan",
     "principle-review",
+    "ai-review",
 ]

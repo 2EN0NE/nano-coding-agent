@@ -1,0 +1,13 @@
+{
+  "name": "nano-coding-pi-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@mariozechner/pi-coding-agent": "^0.67.1",
+    "@mariozechner/pi-ai": "^0.67.1",
+    "tsx": "^4.0.0",
+    "typescript": "^5.4.0"
+  },
+  "devDependencies": {}
+}

@@ -31,6 +31,15 @@ INSTALLABLE_SKILLS: list[dict[str, Any]] = [
         "hook_cmd": "python3 -m nano_coding.cli scan --path .",
     },
     {
+        "name": "ai-review",
+        "description": "使用大模型对项目原则文档进行语义级审查",
+        "checked": True,
+        "requires_cli": [],
+        "template_dir": None,
+        "hooks": [],
+        "hook_cmd": None,
+    },
+    {
         "name": "beads",
         "description": "AI-native issue tracking via Beads CLI",
         "checked": False,

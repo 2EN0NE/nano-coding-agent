@@ -76,7 +76,7 @@ def generate_skill_md(command: click.Command) -> str:
 
 def generate_all_skills() -> dict[str, str]:
     """Generate SKILL.md content for all built-in skills."""
-    from nano_coding.skills import guard, principle_review
+    from nano_coding.skills import ai_review, guard, principle_review
 
     results: dict[str, str] = {}
 
@@ -94,6 +94,9 @@ def generate_all_skills() -> dict[str, str]:
             results[cli.name] = generate_skill_md(cli)
     elif isinstance(cli, click.Command) and cli.name:
         results[cli.name] = generate_skill_md(cli)
+
+    if isinstance(ai_review.ai_review, click.Command) and ai_review.ai_review.name:
+        results[ai_review.ai_review.name] = generate_skill_md(ai_review.ai_review)
 
     return results
 

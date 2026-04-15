@@ -287,3 +287,14 @@ install:
   default_hooks:
     - validate
     - scan
+
+# AI Review Configuration
+ai:
+  provider: kimi-coding             # or anthropic, openai
+  model: k2p5                       # or claude-sonnet-4-20250514, gpt-4o
+  thinking_level: low               # off, minimal, low, medium, high
+  enabled_reviews:
+    - agents-md
+    - background-md
+    - agents-abort
+    - subdir-agents

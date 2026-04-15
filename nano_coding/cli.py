@@ -8,6 +8,7 @@ from nano_coding import __version__
 from nano_coding.core.local_skill_loader import discover_local_skills, load_python_skill
 from nano_coding.core.project_discovery import find_nearest_agent_dir
 from nano_coding.core.version_checker import check_version
+from nano_coding.skills import ai_review as ai_review_skill
 from nano_coding.skills.guard import commands as guard_commands
 from nano_coding.skills.principle_review import cli as principle_review_cli
 
@@ -91,12 +92,15 @@ def _make_markdown_skill_command(name: str, body: str) -> click.Command:
 
 def _register_skills() -> None:
     _BUILTIN_SKILLS = {
+        "ai-review": ai_review_skill.ai_review,
         "guard": guard_commands,
         "principle-review": principle_review_cli,
     }
 
     for name, cmd in _BUILTIN_SKILLS.items():
         if isinstance(cmd, click.Group):
+            cli.add_command(cmd, name=name)
+        elif isinstance(cmd, click.Command):
             cli.add_command(cmd, name=name)
         elif isinstance(cmd, dict):
             for cmd_name, c in cmd.items():
