@@ -1,0 +1,287 @@
+# nano-coding-agent 项目级配置
+# 配置加载优先级：项目配置 > 用户目录配置 (~/.nano-coding-agent/config.yaml) > 内置默认值
+# 为兼容旧项目，config.json 仍然会被读取，但优先级低于 config.yaml
+
+# === 全局语义设置 ===
+semantic_threshold: 0.88  # 原则去重语义相似度阈值
+
+# === 受保护文档 ===
+# 变更这些文件时，pre-commit 会要求人工确认
+protected_documents:
+  - AGENTS.md
+  - AGENTS_ABORT.md
+  - BANNED-AGENT-BEHAVIORS.md
+  - .nano-coding-agent/config.yaml
+
+# === 路径与文档配置 ===
+paths:
+  # 核心文档文件名
+  agents_md: AGENTS.md
+  agents_abort: AGENTS_ABORT.md
+  banned_behaviors: BANNED-AGENT-BEHAVIORS.md
+  background_md: BACKGROUND.md
+  readme_md: README.md
+
+  # 架构索引文档
+  index_files:
+    - .INDEX.md
+    - .SUMMARY.md
+
+  # 临时文档（任务完成后建议清理）
+  temp_docs:
+    - TODO.md
+    - PROGRESS.md
+
+  # 知识目录
+  knowledge_dir: knowledge
+
+  # 测试目录结构
+  test_dirs:
+    - tests
+    - test
+    - spec
+  test_separation_dirs:
+    - tests/unit
+    - tests/integration
+
+  # Agent 配置目录
+  agent_dir: .nano-coding-agent
+
+# === 扫描配置 (scan 技能) ===
+scan:
+  # 默认启用的扫描工具
+  tools:
+    - semgrep
+    - regex
+
+  # 语言到 semgrep 规则集的映射
+  audit_rules:
+    python: python-security
+    typescript: ts-security
+    go: go-security
+    rust: rust-security
+
+  # 审计正则模式（可通过 scan.rules 加载外部 JSON 扩展）
+  suspicious_patterns:
+    python:
+      - pattern: r"print\s*\("
+        message: "Print statement found - consider using logging"
+      - pattern: r"#.*TODO\b"
+        message: "TODO comment found"
+      - pattern: r"#.*FIXME\b"
+        message: "FIXME comment found"
+      - pattern: r"except:\s*\n\s*pass"
+        message: "Bare except clause with pass"
+      - pattern: r"os\.environ\.get\(['\"](API_KEY|SECRET|PASSWORD|TOKEN)"
+        message: "Potential secret in environment access"
+    javascript:
+      - pattern: r"console\.log\s*\("
+        message: "Console.log found"
+      - pattern: r"TODO\b"
+        message: "TODO comment found"
+      - pattern: r"FIXME\b"
+        message: "FIXME comment found"
+    typescript:
+      - pattern: r"console\.log\s*\("
+        message: "Console.log found"
+      - pattern: r"TODO\b"
+        message: "TODO comment found"
+      - pattern: r"FIXME\b"
+        message: "FIXME comment found"
+      - pattern: r"@ts-ignore"
+        message: "ts-ignore found - may hide type errors"
+      - pattern: r"as\s+any\s*(\"|')"
+        message: "Type assertion to 'any' - loses type safety"
+
+# === 校验配置 (validate 技能) ===
+validate:
+  # 文档最大行数限制
+  max_lines: 1000
+
+  # 扫描时忽略的目录
+  ignore_dirs:
+    - .git
+    - node_modules
+    - .venv
+    - venv
+    - __pycache__
+    - .pytest_cache
+    - dist
+    - build
+    - .opencode
+
+  # 扫描时包含的文件扩展名
+  file_extensions:
+    - .py
+    - .ts
+    - .tsx
+    - .js
+    - .jsx
+    - .rs
+    - .go
+    - .java
+    - .md
+    - .yml
+    - .yaml
+    - .json
+    - .toml
+
+  # 包管理器锁定文件列表
+  lock_files:
+    - package-lock.json
+    - Cargo.lock
+    - Pipfile.lock
+    - poetry.lock
+    - yarn.lock
+    - pnpm-lock.yaml
+
+  # 禁止出现在项目根目录的目录名
+  forbidden_dirs:
+    - templates
+    - scripts
+
+  # 测试命令正则模式（用于检查文档中是否说明了测试命令）
+  test_command_patterns:
+    - r"pytest\s+[-\w]"
+    - r"npm\s+test"
+    - r"yarn\s+test"
+    - r"pnpm\s+test"
+    - r"cargo\s+test"
+    - r"go\s+test"
+    - r"mvn\s+test"
+    - r"gradle\s+test"
+    - r"dotnet\s+test"
+    - r"python\s+-m\s+(pytest|unittest)"
+
+  # BACKGROUND.md 推荐包含的关键词
+  background_keywords:
+    - 愿景
+    - 约束
+    - 业务逻辑
+    - 避坑
+
+  # 敏感文件检测规则（用于提醒加入 .gitignore）
+  sensitive_file_rules:
+    exact_names:
+      - id_rsa
+    prefixes:
+      - .env
+      - credentials
+      - secret
+    suffixes:
+      - .key
+      - .pem
+      - .p12
+      - .log
+    log_size_bytes: 1048576  # .log 文件超过此大小才视为敏感
+
+  # 包管理器一致性检查规则
+  package_manager:
+    lock_manager_map:
+      package-lock.json: npm
+      pnpm-lock.yaml: pnpm
+      yarn.lock: yarn
+      Cargo.lock: cargo
+      poetry.lock: poetry
+      Pipfile.lock: pipenv
+    bad_patterns:
+      npm:
+        - r"\bpnpm\s+install\b"
+        - r"\byarn\s+install\b"
+        - r"\byarn\s+add\b"
+      pnpm:
+        - r"\bnpm\s+install\b"
+        - r"\byarn\s+install\b"
+        - r"\byarn\s+add\b"
+        - r"\bnpm\s+ci\b"
+      yarn:
+        - r"\bnpm\s+install\b"
+        - r"\bpnpm\s+install\b"
+        - r"\bnpm\s+ci\b"
+      cargo:
+        - r"\bnpm\s+install\b"
+        - r"\byarn\s+install\b"
+        - r"\bpnpm\s+install\b"
+        - r"\bpip\s+install\b"
+        - r"\bpoetry\s+install\b"
+        - r"\bpipenv\s+install\b"
+      poetry:
+        - r"\bpip\s+install\b"
+        - r"\bpipenv\s+install\b"
+        - r"\bnpm\s+install\b"
+        - r"\byarn\s+install\b"
+        - r"\bpnpm\s+install\b"
+      pipenv:
+        - r"\bpip\s+install\b"
+        - r"\bpoetry\s+install\b"
+        - r"\bnpm\s+install\b"
+        - r"\byarn\s+install\b"
+        - r"\bpnpm\s+install\b"
+
+  # 各校验规则的阈值与开关
+  checks:
+    agents_md_exists:
+      enabled: true
+    agents_md_has_section:
+      enabled: true
+      required_section: "## 基础原则"
+    forbidden_dirs:
+      enabled: true
+    pre_commit_hook:
+      enabled: true
+    temp_docs:
+      enabled: true
+    tests_exist:
+      enabled: true
+    file_length:
+      enabled: true
+      max_lines: 1000
+    agents_abort:
+      enabled: true
+    background_md:
+      enabled: true
+    test_separation:
+      enabled: true
+    test_commands:
+      enabled: true
+    protected_docs:
+      enabled: true
+    subdir_agents:
+      enabled: true
+      source_file_threshold: 50
+      agents_line_threshold: 500
+    index_summary:
+      enabled: true
+    knowledge_dir:
+      enabled: true
+    subdir_agents_overflow:
+      enabled: true
+      max_lines: 500
+      max_blocks: 20
+    agents_language:
+      enabled: true
+      mixed_ratio: 0.30
+    readme_i18n:
+      enabled: true
+    background_content:
+      enabled: true
+    gitignore_tempfiles:
+      enabled: true
+    commit_size:
+      enabled: true
+      max_files: 10
+      max_insertions: 500
+    package_manager_check:
+      enabled: true
+    agents_length:
+      enabled: true
+      max_lines: 1000
+      max_principle_chars: 1000
+      max_practice_chars: 150
+
+# === 安装默认设置 ===
+install:
+  # 非交互式安装时默认启用的 hooks
+  default_hooks:
+    - validate
+    - scan

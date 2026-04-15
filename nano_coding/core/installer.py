@@ -10,7 +10,7 @@ import click
 
 from nano_coding import __version__
 from nano_coding.agent.skills import BUILTIN_SKILL_NAMES
-from nano_coding.core import skill_generator
+from nano_coding.core import config_loader, skill_generator
 from nano_coding.core.optional_skills import EXTERNAL_TOOLS, INSTALLABLE_SKILLS
 
 try:
@@ -274,10 +274,11 @@ def install_agent(target_dir: str, interactive: bool = False) -> None:
     version_file = agent_dir / "version"
     version_file.write_text(__version__, encoding="utf-8")
 
-    config_file = agent_dir / "config.json"
-    if not config_file.exists():
+    config_file = agent_dir / "config.yaml"
+    legacy_config_file = agent_dir / "config.json"
+    if not config_file.exists() and not legacy_config_file.exists():
         config_file.write_text(
-            _read_agent_text("templates/config.json.template"), encoding="utf-8"
+            _read_agent_text("templates/config.yaml.template"), encoding="utf-8"
         )
 
     agents_md_file = agent_dir / "AGENTS.md"
@@ -293,9 +294,16 @@ def install_agent(target_dir: str, interactive: bool = False) -> None:
     if not dest_principles.exists():
         shutil.copy(str(source_principles), str(dest_principles))
 
+    config = config_loader.resolve_config(target)
+    install_config = config.get("install", {})
+
     selected_tools: list[str] = []
-    selected_skills: list[str] = BUILTIN_SKILL_NAMES
-    selected_hooks: list[str] = ["validate", "scan"]
+    selected_skills: list[str] = install_config.get(
+        "default_skills", BUILTIN_SKILL_NAMES
+    )
+    selected_hooks: list[str] = install_config.get(
+        "default_hooks", ["validate", "scan"]
+    )
     if interactive:
         clis = _detect_available_clis()
         available_skills = _filter_available_skills(clis)

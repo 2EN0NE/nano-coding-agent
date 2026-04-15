@@ -49,6 +49,29 @@ LOCK_FILES = {
     "pnpm-lock.yaml",
 }
 
+
+def _get_validate_config(config: dict) -> dict:
+    return config.get("validate", {})
+
+
+def _get_paths_config(config: dict) -> dict:
+    return config.get("paths", {})
+
+
+def _resolve_config_list(config: dict, key: str, fallback: set[str]) -> set[str]:
+    value = config.get(key)
+    if isinstance(value, list):
+        return set(value)
+    return set(fallback)
+
+
+def _resolve_config_value(config: dict, key: str, fallback):
+    value = config.get(key)
+    if value is not None:
+        return value
+    return fallback
+
+
 # Principle metadata for human-readable output
 _PRINCIPLES = {
     "core_principles": {
@@ -164,10 +187,12 @@ class ForbiddenDirsCheck(Check):
     severity = "blocking"
     requires_llm = False
 
+    def __init__(self, forbidden_dirs: list[str] | None = None):
+        self.forbidden_dirs = forbidden_dirs or ["templates", "scripts"]
+
     def run(self, project_root: Path) -> list[Issue]:
         issues = []
-        forbidden = ["templates", "scripts"]
-        for d in forbidden:
+        for d in self.forbidden_dirs:
             if (project_root / d).is_dir():
                 issues.append(
                     Issue(
@@ -226,9 +251,12 @@ class TempDocsCheck(Check):
     severity = "warning"
     requires_llm = False
 
+    def __init__(self, temp_docs: list[str] | None = None):
+        self.temp_docs = temp_docs or ["TODO.md", "PROGRESS.md"]
+
     def run(self, project_root: Path) -> list[Issue]:
         issues = []
-        for temp_doc in ["TODO.md", "PROGRESS.md"]:
+        for temp_doc in self.temp_docs:
             if (project_root / temp_doc).exists():
                 issues.append(
                     Issue(
@@ -251,9 +279,11 @@ class TestsExistCheck(Check):
     severity = "warning"
     requires_llm = False
 
+    def __init__(self, test_indicators: list[str] | None = None):
+        self.test_indicators = test_indicators or ["tests", "test", "spec"]
+
     def run(self, project_root: Path) -> list[Issue]:
-        test_indicators = ["tests", "test", "spec"]
-        for indicator in test_indicators:
+        for indicator in self.test_indicators:
             if (project_root / indicator).is_dir():
                 return []
             if (
@@ -324,9 +354,17 @@ class AgentsAbortCheck(Check):
     severity = "blocking"
     requires_llm = False
 
+    def __init__(
+        self,
+        agents_abort_file: str = "AGENTS_ABORT.md",
+        banned_behaviors_file: str = "BANNED-AGENT-BEHAVIORS.md",
+    ):
+        self.agents_abort_file = agents_abort_file
+        self.banned_behaviors_file = banned_behaviors_file
+
     def run(self, project_root: Path) -> list[Issue]:
-        agents_abort = project_root / "AGENTS_ABORT.md"
-        banned_behaviors = project_root / "BANNED-AGENT-BEHAVIORS.md"
+        agents_abort = project_root / self.agents_abort_file
+        banned_behaviors = project_root / self.banned_behaviors_file
 
         if not agents_abort.exists() and not banned_behaviors.exists():
             return [
@@ -334,7 +372,7 @@ class AgentsAbortCheck(Check):
                     path=None,
                     line=None,
                     rule_id="AGENTS_ABORT_MISSING",
-                    message="AGENTS_ABORT.md (or BANNED-AGENT-BEHAVIORS.md) not found.",
+                    message=f"{self.agents_abort_file} (or {self.banned_behaviors_file}) not found.",
                     principle=self.principle,
                     practice=self.practice,
                     severity=self.severity,
@@ -388,35 +426,27 @@ class TestSeparationCheck(Check):
     severity = "blocking"
     requires_llm = False
 
+    def __init__(self, test_separation_dirs: list[str] | None = None):
+        self.test_separation_dirs = test_separation_dirs or [
+            "tests/unit",
+            "tests/integration",
+        ]
+
     def run(self, project_root: Path) -> list[Issue]:
         issues = []
-        unit_dir = project_root / "tests" / "unit"
-        integration_dir = project_root / "tests" / "integration"
-
-        if not unit_dir.is_dir():
-            issues.append(
-                Issue(
-                    path=None,
-                    line=None,
-                    rule_id="MISSING_UNIT_DIR",
-                    message="Missing tests/unit/ directory (required for test type separation).",
-                    principle=self.principle,
-                    practice=self.practice,
-                    severity=self.severity,
+        for dir_path in self.test_separation_dirs:
+            if not (project_root / dir_path).is_dir():
+                issues.append(
+                    Issue(
+                        path=None,
+                        line=None,
+                        rule_id=f"MISSING_{dir_path.replace('/', '_').upper()}_DIR",
+                        message=f"Missing {dir_path}/ directory (required for test type separation).",
+                        principle=self.principle,
+                        practice=self.practice,
+                        severity=self.severity,
+                    )
                 )
-            )
-        if not integration_dir.is_dir():
-            issues.append(
-                Issue(
-                    path=None,
-                    line=None,
-                    rule_id="MISSING_INTEGRATION_DIR",
-                    message="Missing tests/integration/ directory (required for test type separation).",
-                    principle=self.principle,
-                    practice=self.practice,
-                    severity=self.severity,
-                )
-            )
         return issues
 
 
@@ -427,7 +457,7 @@ class TestCommandsCheck(Check):
     severity = "blocking"
     requires_llm = False
 
-    TEST_COMMAND_PATTERNS = [
+    DEFAULT_PATTERNS = [
         r"pytest\s+[-\w]",
         r"npm\s+test",
         r"yarn\s+test",
@@ -440,6 +470,11 @@ class TestCommandsCheck(Check):
         r"python\s+-m\s+(pytest|unittest)",
     ]
 
+    def __init__(self, test_command_patterns: list[str] | None = None):
+        self.test_command_patterns = test_command_patterns or list(
+            self.DEFAULT_PATTERNS
+        )
+
     def run(self, project_root: Path) -> list[Issue]:
         readme = project_root / "README.md"
         agents = project_root / "AGENTS.md"
@@ -450,7 +485,7 @@ class TestCommandsCheck(Check):
         if agents.exists():
             combined_content += agents.read_text(encoding="utf-8")
 
-        for pattern in self.TEST_COMMAND_PATTERNS:
+        for pattern in self.test_command_patterns:
             if re.search(pattern, combined_content):
                 return []
 
@@ -474,8 +509,17 @@ def _has_subdir_agents(project_root: Path) -> bool:
     return False
 
 
-def _count_source_files(project_root: Path) -> int:
-    test_dirs = {"tests", "test", "spec"}
+def _count_source_files(
+    project_root: Path,
+    exclude_dirs: set[str] | None = None,
+    file_extensions: set[str] | None = None,
+    lock_files: set[str] | None = None,
+    test_dirs: set[str] | None = None,
+) -> int:
+    exclude_dirs = exclude_dirs or EXCLUDE_DIRS
+    file_extensions = file_extensions or FILE_EXTENSIONS
+    lock_files = lock_files or LOCK_FILES
+    test_dirs = test_dirs or {"tests", "test", "spec"}
     count = 0
     for path in project_root.rglob("*"):
         if not path.is_file():
@@ -484,11 +528,11 @@ def _count_source_files(project_root: Path) -> int:
             relative = path.relative_to(project_root)
         except ValueError:
             continue
-        if any(part in EXCLUDE_DIRS or part in test_dirs for part in relative.parts):
+        if any(part in exclude_dirs or part in test_dirs for part in relative.parts):
             continue
-        if path.suffix not in FILE_EXTENSIONS:
+        if path.suffix not in file_extensions:
             continue
-        if path.name in LOCK_FILES:
+        if path.name in lock_files:
             continue
         count += 1
     return count
@@ -502,10 +546,20 @@ class CheckSubdirAgents(Check):
     requires_llm = False
 
     def __init__(
-        self, source_file_threshold: int = 50, agents_line_threshold: int = 500
+        self,
+        source_file_threshold: int = 50,
+        agents_line_threshold: int = 500,
+        exclude_dirs: set[str] | None = None,
+        file_extensions: set[str] | None = None,
+        lock_files: set[str] | None = None,
+        test_dirs: set[str] | None = None,
     ):
         self.source_file_threshold = source_file_threshold
         self.agents_line_threshold = agents_line_threshold
+        self.exclude_dirs = exclude_dirs
+        self.file_extensions = file_extensions
+        self.lock_files = lock_files
+        self.test_dirs = test_dirs
 
     def run(self, project_root: Path) -> list[Issue]:
         agents_md = project_root / "AGENTS.md"
@@ -514,7 +568,14 @@ class CheckSubdirAgents(Check):
             with agents_md.open("rb") as f:
                 agents_lines = sum(1 for _ in f)
         if (
-            _count_source_files(project_root) > self.source_file_threshold
+            _count_source_files(
+                project_root,
+                exclude_dirs=self.exclude_dirs,
+                file_extensions=self.file_extensions,
+                lock_files=self.lock_files,
+                test_dirs=self.test_dirs,
+            )
+            > self.source_file_threshold
             or agents_lines > self.agents_line_threshold
         ):
             if not _has_subdir_agents(project_root):
@@ -539,23 +600,23 @@ class CheckIndexSummary(Check):
     severity = "warning"
     requires_llm = False
 
+    def __init__(self, index_files: list[str] | None = None):
+        self.index_files = index_files or [".INDEX.md", ".SUMMARY.md"]
+
     def run(self, project_root: Path) -> list[Issue]:
-        if (
-            not (project_root / ".INDEX.md").exists()
-            and not (project_root / ".SUMMARY.md").exists()
-        ):
-            return [
-                Issue(
-                    path=None,
-                    line=None,
-                    rule_id="INDEX_SUMMARY_MISSING",
-                    message="Neither .INDEX.md nor .SUMMARY.md found in project root. Consider adding an architecture overview document.",
-                    principle=self.principle,
-                    practice=self.practice,
-                    severity=self.severity,
-                )
-            ]
-        return []
+        if any((project_root / f).exists() for f in self.index_files):
+            return []
+        return [
+            Issue(
+                path=None,
+                line=None,
+                rule_id="INDEX_SUMMARY_MISSING",
+                message="Neither .INDEX.md nor .SUMMARY.md found in project root. Consider adding an architecture overview document.",
+                principle=self.principle,
+                practice=self.practice,
+                severity=self.severity,
+            )
+        ]
 
 
 class CheckKnowledgeDir(Check):
@@ -565,14 +626,17 @@ class CheckKnowledgeDir(Check):
     severity = "warning"
     requires_llm = False
 
+    def __init__(self, knowledge_dir: str | None = None):
+        self.knowledge_dir = knowledge_dir or "knowledge"
+
     def run(self, project_root: Path) -> list[Issue]:
-        if not (project_root / "knowledge").is_dir():
+        if not (project_root / self.knowledge_dir).is_dir():
             return [
                 Issue(
                     path=None,
                     line=None,
                     rule_id="KNOWLEDGE_DIR_MISSING",
-                    message="knowledge/ directory not found in project root. Consider creating one for accumulated learnings.",
+                    message=f"{self.knowledge_dir}/ directory not found in project root. Consider creating one for accumulated learnings.",
                     principle=self.principle,
                     practice=self.practice,
                     severity=self.severity,
@@ -718,13 +782,20 @@ class CheckBackgroundContent(Check):
     severity = "warning"
     requires_llm = False
 
+    def __init__(self, background_keywords: list[str] | None = None):
+        self.background_keywords = background_keywords or [
+            "愿景",
+            "约束",
+            "业务逻辑",
+            "避坑",
+        ]
+
     def run(self, project_root: Path) -> list[Issue]:
         bg = project_root / "BACKGROUND.md"
         if not bg.exists():
             return []
         content = bg.read_text(encoding="utf-8")
-        keywords = ["愿景", "约束", "业务逻辑", "避坑"]
-        missing = [kw for kw in keywords if kw not in content]
+        missing = [kw for kw in self.background_keywords if kw not in content]
         if missing:
             return [
                 Issue(
@@ -747,12 +818,21 @@ class CheckGitignoreTempfiles(Check):
     severity = "warning"
     requires_llm = False
 
-    SENSITIVE_PREFIXES = (".env", "credentials", "secret")
-    SENSITIVE_SUFFIXES = (".key", ".pem", ".p12", ".log")
-    EXACT_NAMES = ("id_rsa",)
+    DEFAULT_SENSITIVE_PREFIXES = (".env", "credentials", "secret")
+    DEFAULT_SENSITIVE_SUFFIXES = (".key", ".pem", ".p12", ".log")
+    DEFAULT_EXACT_NAMES = ("id_rsa",)
 
-    def __init__(self, log_size_bytes: int = 1048576):
+    def __init__(
+        self,
+        log_size_bytes: int = 1048576,
+        sensitive_prefixes: tuple[str, ...] | None = None,
+        sensitive_suffixes: tuple[str, ...] | None = None,
+        exact_names: tuple[str, ...] | None = None,
+    ):
         self.log_size_bytes = log_size_bytes
+        self.sensitive_prefixes = sensitive_prefixes or self.DEFAULT_SENSITIVE_PREFIXES
+        self.sensitive_suffixes = sensitive_suffixes or self.DEFAULT_SENSITIVE_SUFFIXES
+        self.exact_names = exact_names or self.DEFAULT_EXACT_NAMES
 
     def run(self, project_root: Path) -> list[Issue]:
         try:
@@ -777,15 +857,15 @@ class CheckGitignoreTempfiles(Check):
             name = os.path.basename(f)
             path = project_root / f
             is_sensitive = False
-            if name in self.EXACT_NAMES:
+            if name in self.exact_names:
                 is_sensitive = True
             if not is_sensitive and any(
                 name.startswith(p) or name.startswith("." + p)
-                for p in self.SENSITIVE_PREFIXES
+                for p in self.sensitive_prefixes
             ):
                 is_sensitive = True
             if not is_sensitive and any(
-                name.endswith(suf) for suf in self.SENSITIVE_SUFFIXES
+                name.endswith(suf) for suf in self.sensitive_suffixes
             ):
                 if name.endswith(".log") and path.is_file():
                     try:
@@ -835,7 +915,7 @@ class ProtectedDocsCheck(Check):
         "AGENTS.md",
         "AGENTS_ABORT.md",
         "BANNED-AGENT-BEHAVIORS.md",
-        ".nano-coding-agent/config.json",
+        ".nano-coding-agent/config.yaml",
     ]
 
     def run(self, project_root: Path) -> list[Issue]:
@@ -926,7 +1006,7 @@ class CheckPackageManager(Check):
     severity = "warning"
     requires_llm = False
 
-    LOCK_MANAGER_MAP = {
+    DEFAULT_LOCK_MANAGER_MAP = {
         "package-lock.json": "npm",
         "pnpm-lock.yaml": "pnpm",
         "yarn.lock": "yarn",
@@ -935,7 +1015,7 @@ class CheckPackageManager(Check):
         "Pipfile.lock": "pipenv",
     }
 
-    BAD_PATTERNS = {
+    DEFAULT_BAD_PATTERNS = {
         "npm": [r"\bpnpm\s+install\b", r"\byarn\s+install\b", r"\byarn\s+add\b"],
         "pnpm": [
             r"\bnpm\s+install\b",
@@ -968,9 +1048,19 @@ class CheckPackageManager(Check):
         ],
     }
 
+    def __init__(
+        self,
+        lock_manager_map: dict[str, str] | None = None,
+        bad_patterns: dict[str, list[str]] | None = None,
+    ):
+        self.lock_manager_map = lock_manager_map or dict(self.DEFAULT_LOCK_MANAGER_MAP)
+        self.bad_patterns = bad_patterns or {
+            k: list(v) for k, v in self.DEFAULT_BAD_PATTERNS.items()
+        }
+
     def run(self, project_root: Path) -> list[Issue]:
         detected: list[str] = []
-        for lock_file, manager in self.LOCK_MANAGER_MAP.items():
+        for lock_file, manager in self.lock_manager_map.items():
             if (project_root / lock_file).exists():
                 detected.append(manager)
         if not detected:
@@ -982,7 +1072,7 @@ class CheckPackageManager(Check):
         if not combined:
             return []
         for manager in detected:
-            for pattern in self.BAD_PATTERNS.get(manager, []):
+            for pattern in self.bad_patterns.get(manager, []):
                 if re.search(pattern, combined):
                     return [
                         Issue(
@@ -1070,8 +1160,9 @@ def build_validation_engine(
     exclude_dirs: set[str] | None = None,
     config: dict | None = None,
 ) -> CheckEngine:
-    """Build and return a CheckEngine with all validation checks registered."""
     config = config or {}
+    validate_cfg = _get_validate_config(config)
+    paths_cfg = _get_paths_config(config)
     checks_config = config.get("checks", {})
 
     file_length_cfg = checks_config.get("file_length", {})
@@ -1084,30 +1175,60 @@ def build_validation_engine(
     agents_length_cfg = checks_config.get("agents_length", {})
     gitignore_tempfiles_cfg = checks_config.get("gitignore_tempfiles", {})
 
+    forbidden_dirs = validate_cfg.get("forbidden_dirs")
+    temp_docs = validate_cfg.get("temp_docs")
+    test_indicators = validate_cfg.get("test_indicators")
+    agents_abort_file = paths_cfg.get("agents_abort", "AGENTS_ABORT.md")
+    banned_behaviors_file = paths_cfg.get(
+        "banned_behaviors", "BANNED-AGENT-BEHAVIORS.md"
+    )
+    test_separation_dirs = validate_cfg.get("test_separation_dirs")
+    test_command_patterns = validate_cfg.get("test_command_patterns")
+    index_files = paths_cfg.get("index_files")
+    knowledge_dir = paths_cfg.get("knowledge_dir")
+    background_keywords = validate_cfg.get("background_keywords")
+    sensitive_file_rules = validate_cfg.get("sensitive_file_rules", {})
+    package_manager_cfg = validate_cfg.get("package_manager", {})
+
+    file_extensions = _resolve_config_list(
+        validate_cfg, "file_extensions", FILE_EXTENSIONS
+    )
+    lock_files = _resolve_config_list(validate_cfg, "lock_files", LOCK_FILES)
+    test_dirs = _resolve_config_list(paths_cfg, "test_dirs", {"tests", "test", "spec"})
+
     engine = CheckEngine()
     engine.register(AgentsMdExistsCheck())
     engine.register(AgentsMdHasSectionCheck())
-    engine.register(ForbiddenDirsCheck())
+    engine.register(ForbiddenDirsCheck(forbidden_dirs=forbidden_dirs))
     engine.register(PreCommitHookCheck())
-    engine.register(TempDocsCheck())
-    engine.register(TestsExistCheck())
+    engine.register(TempDocsCheck(temp_docs=temp_docs))
+    engine.register(TestsExistCheck(test_indicators=test_indicators))
     engine.register(
         FileLengthCheck(max_lines=file_length_max_lines, exclude_dirs=exclude_dirs)
     )
-    engine.register(AgentsAbortCheck())
+    engine.register(
+        AgentsAbortCheck(
+            agents_abort_file=agents_abort_file,
+            banned_behaviors_file=banned_behaviors_file,
+        )
+    )
     engine.register(BackgroundMdCheck())
-    engine.register(TestSeparationCheck())
-    engine.register(TestCommandsCheck())
+    engine.register(TestSeparationCheck(test_separation_dirs=test_separation_dirs))
+    engine.register(TestCommandsCheck(test_command_patterns=test_command_patterns))
     engine.register(ProtectedDocsCheck())
     engine.register(
         CheckSubdirAgents(
             source_file_threshold=subdir_agents_cfg.get("source_file_threshold", 50),
             agents_line_threshold=subdir_agents_cfg.get("agents_line_threshold", 500),
+            exclude_dirs=exclude_dirs if exclude_dirs else EXCLUDE_DIRS,
+            file_extensions=file_extensions,
+            lock_files=lock_files,
+            test_dirs=test_dirs,
         )
     )
-    engine.register(CheckIndexSummary())
-    engine.register(CheckKnowledgeDir())
-    engine.register(CheckKnowledgeDirExperience())
+    engine.register(CheckIndexSummary(index_files=index_files))
+    engine.register(CheckKnowledgeDir(knowledge_dir=knowledge_dir))
+    engine.register(CheckKnowledgeDirExperience(knowledge_dir=knowledge_dir))
     engine.register(
         CheckSubdirAgentsOverflow(
             max_lines=overflow_cfg.get("max_lines", 500),
@@ -1120,10 +1241,27 @@ def build_validation_engine(
         )
     )
     engine.register(CheckReadmeI18n())
-    engine.register(CheckBackgroundContent())
+    engine.register(CheckBackgroundContent(background_keywords=background_keywords))
     engine.register(
         CheckGitignoreTempfiles(
-            log_size_bytes=gitignore_tempfiles_cfg.get("log_size_bytes", 1048576),
+            log_size_bytes=gitignore_tempfiles_cfg.get(
+                "log_size_bytes", sensitive_file_rules.get("log_size_bytes", 1048576)
+            ),
+            sensitive_prefixes=tuple(
+                sensitive_file_rules.get(
+                    "prefixes", CheckGitignoreTempfiles.DEFAULT_SENSITIVE_PREFIXES
+                )
+            ),
+            sensitive_suffixes=tuple(
+                sensitive_file_rules.get(
+                    "suffixes", CheckGitignoreTempfiles.DEFAULT_SENSITIVE_SUFFIXES
+                )
+            ),
+            exact_names=tuple(
+                sensitive_file_rules.get(
+                    "exact_names", CheckGitignoreTempfiles.DEFAULT_EXACT_NAMES
+                )
+            ),
         )
     )
     engine.register(
@@ -1132,7 +1270,12 @@ def build_validation_engine(
             max_insertions=commit_size_cfg.get("max_insertions", 500),
         )
     )
-    engine.register(CheckPackageManager())
+    engine.register(
+        CheckPackageManager(
+            lock_manager_map=package_manager_cfg.get("lock_manager_map"),
+            bad_patterns=package_manager_cfg.get("bad_patterns"),
+        )
+    )
     engine.register(
         CheckAgentsLength(
             max_lines=agents_length_cfg.get("max_lines", 1000),
@@ -1155,7 +1298,7 @@ def validate_project(
     root = Path(project_root).resolve()
 
     config = config_loader.resolve_config(root)
-    validate_config = config.get("validate", {})
+    validate_config = _get_validate_config(config)
 
     if isinstance(validate_config.get("max_lines"), int):
         max_lines = validate_config["max_lines"]

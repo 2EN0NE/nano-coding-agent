@@ -1521,6 +1521,12 @@ dev = [
     { name = "semgrep", version = "1.159.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
 ]
 
+[package.dev-dependencies]
+integration = [
+    { name = "pytest", version = "8.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "pytest", version = "9.0.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "bandit", marker = "extra == 'dev'", specifier = ">=1.7" },
@@ -1538,6 +1544,9 @@ requires-dist = [
     { name = "semgrep", marker = "extra == 'dev'", specifier = ">=1.40" },
 ]
 provides-extras = ["dev"]
+
+[package.metadata.requires-dev]
+integration = [{ name = "pytest", specifier = ">=7.4" }]
 
 [[package]]
 name = "opentelemetry-api"

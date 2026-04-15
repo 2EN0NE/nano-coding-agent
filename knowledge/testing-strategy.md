@@ -22,6 +22,32 @@
 4. 设置 `PYTHONPATH` 指向项目根目录，确保调用的是本地源码而非已安装的全局包
 5. 断言 stdout/stderr 内容和进程返回码
 
+### 集成测试环境隔离（uv + sandbox）
+
+为避免污染开发环境，集成测试使用 uv 的 `dependency-groups` 进行依赖隔离：
+
+```toml
+[dependency-groups]
+integration = [
+    "pytest>=7.4",
+]
+```
+
+一键运行脚本：
+
+```bash
+bash scripts/test-integration.sh
+```
+
+脚本行为：
+1. 重建 `.venv-integration/` 隔离虚拟环境
+2. 将当前项目复制到 `.sandbox-integration/`
+3. 在沙盒内切换到 `main` 分支（提供典型项目模板）
+4. 恢复当前分支的 `tests/integration/`、`nano_coding/` 和 `principles/`
+5. 在隔离环境中安装包并运行 `pytest tests/integration/ -v`
+
+**新增集成测试只需**：在 `tests/integration/` 下编写 pytest 函数，无需关心环境创建逻辑。
+
 ### 已覆盖的真实场景
 | 场景 | 验证点 |
 |------|--------|
@@ -56,4 +82,11 @@ pytest tests/integration/ -v
 
 # 仅单元测试
 pytest tests/unit/ -v
+
+# 隔离集成测试（一键沙盒）
+bash scripts/test-integration.sh
 ```
+
+---
+
+> 📝 **经验沉淀提醒**：> > 每次在集成测试工作中发现新的环境冲突、原则冲突或最佳实践，请同步更新本文档或 `knowledge/principle-gotchas.md`。> 建议每月 Review 一次 `knowledge/` 目录，归档已失效的内容，保持知识库与实际代码一致。

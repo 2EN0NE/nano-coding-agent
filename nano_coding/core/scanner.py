@@ -6,18 +6,10 @@ from typing import Any, Optional
 
 from nano_coding.core.config_loader import resolve_config
 
-AUDIT_RULES = {
-    "python": "python-security",
-    "typescript": "ts-security",
-    "go": "go-security",
-    "rust": "rust-security",
-}
-
 DEFAULT_SCAN_TOOLS = ["semgrep", "regex"]
 
 
 def _is_inside_string(line: str, pos: int) -> bool:
-    """Check if position in line is inside a string literal."""
     in_single = False
     in_double = False
     escaped = False
@@ -37,36 +29,46 @@ def _is_inside_string(line: str, pos: int) -> bool:
     return in_single or in_double
 
 
-SUSPICIOUS_PATTERNS = {
-    "python": [
-        (r"print\s*\(", "Print statement found - consider using logging"),
-        (r"#.*TODO\b", "TODO comment found"),
-        (r"#.*FIXME\b", "FIXME comment found"),
-        (
-            r"except:\s*\n\s*pass",
-            "Bare except clause with pass",
-        ),
-        (
-            r"os\.environ\.get\(['\"](API_KEY|SECRET|PASSWORD|TOKEN)",
-            "Potential secret in environment access",
-        ),
-    ],
-    "javascript": [
-        (r"console\.log\s*\(", "Console.log found"),
-        (r"TODO\b", "TODO comment found"),
-        (r"FIXME\b", "FIXME comment found"),
-    ],
-    "typescript": [
-        (r"console\.log\s*\(", "Console.log found"),
-        (r"TODO\b", "TODO comment found"),
-        (r"FIXME\b", "FIXME comment found"),
-        (r"@ts-ignore", "ts-ignore found - may hide type errors"),
-        (
-            r"as\s+any\s*(\"|')",
-            "Type assertion to 'any' - loses type safety",
-        ),
-    ],
-}
+def _get_default_suspicious_patterns() -> dict[str, list[tuple[str, str]]]:
+    return {
+        "python": [
+            (r"print\s*\(", "Print statement found - consider using logging"),
+            (r"#.*TODO\b", "TODO comment found"),
+            (r"#.*FIXME\b", "FIXME comment found"),
+            (
+                r"except:\s*\n\s*pass",
+                "Bare except clause with pass",
+            ),
+            (
+                r"os\.environ\.get\(['\"](API_KEY|SECRET|PASSWORD|TOKEN)",
+                "Potential secret in environment access",
+            ),
+        ],
+        "javascript": [
+            (r"console\.log\s*\(", "Console.log found"),
+            (r"TODO\b", "TODO comment found"),
+            (r"FIXME\b", "FIXME comment found"),
+        ],
+        "typescript": [
+            (r"console\.log\s*\(", "Console.log found"),
+            (r"TODO\b", "TODO comment found"),
+            (r"FIXME\b", "FIXME comment found"),
+            (r"@ts-ignore", "ts-ignore found - may hide type errors"),
+            (
+                r"as\s+any\s*(\"|')",
+                "Type assertion to 'any' - loses type safety",
+            ),
+        ],
+    }
+
+
+def _get_default_audit_rules() -> dict[str, str]:
+    return {
+        "python": "python-security",
+        "typescript": "ts-security",
+        "go": "go-security",
+        "rust": "rust-security",
+    }
 
 
 def _get_scan_config(target_dir: Optional[str] = None) -> dict:
@@ -98,8 +100,11 @@ def _load_extra_patterns(rule_paths: list[str]) -> dict[str, list[tuple[str, str
     return patterns
 
 
-def get_rules_for_type(project_type: str) -> str:
-    return AUDIT_RULES.get(project_type, "auto")
+def get_rules_for_type(project_type: str, scan_config: dict | None = None) -> str:
+    audit_rules = _get_default_audit_rules()
+    if scan_config and isinstance(scan_config.get("audit_rules"), dict):
+        audit_rules.update(scan_config["audit_rules"])
+    return audit_rules.get(project_type, "auto")
 
 
 def run_semgrep(
@@ -123,28 +128,34 @@ def filter_blocking(results: dict[str, Any]) -> list[dict[str, Any]]:
     return blocking
 
 
-def detect_language(file_path: str) -> Optional[str]:
+def detect_language(
+    file_path: str, ext_map: dict[str, list[str]] | None = None
+) -> Optional[str]:
+    if ext_map is None:
+        ext_map = {
+            "python": [".py"],
+            "javascript": [".js", ".jsx"],
+            "typescript": [".ts", ".tsx"],
+        }
     ext = Path(file_path).suffix.lower()
-    if ext in [".py"]:
-        return "python"
-    elif ext in [".js", ".jsx"]:
-        return "javascript"
-    elif ext in [".ts", ".tsx"]:
-        return "typescript"
+    for lang, exts in ext_map.items():
+        if ext in exts:
+            return lang
     return None
 
 
 def analyze_file(
     file_path: str,
     patterns: Optional[dict[str, list[tuple[str, str]]]] = None,
+    ext_map: dict[str, list[str]] | None = None,
 ) -> dict[str, list[str]]:
     warnings: list[str] = []
     suggestions: list[str] = []
     if patterns is None:
-        patterns = SUSPICIOUS_PATTERNS
+        patterns = _get_default_suspicious_patterns()
     try:
         content = Path(file_path).read_text()
-        lang = detect_language(file_path)
+        lang = detect_language(file_path, ext_map=ext_map)
         if not lang or lang not in patterns:
             return {"warnings": [], "suggestions": []}
         for pattern, message in patterns.get(lang, []):
@@ -182,7 +193,7 @@ def run_security_scan(
     if "semgrep" not in tools:
         return {"blocking": [], "warnings": [], "suggestions": []}
 
-    rules = get_rules_for_type(project_type)
+    rules = get_rules_for_type(project_type, scan_config=scan_config)
     extra_rules = scan_config.get("rules", [])
     results = run_semgrep(rules, extra_rules=extra_rules)
     blocking_results = filter_blocking(results)
@@ -221,15 +232,35 @@ def run_audit_scan(
 
     extra_rules = scan_config.get("rules", [])
     extra_patterns = _load_extra_patterns(extra_rules)
-    patterns = {lang: list(items) for lang, items in SUSPICIOUS_PATTERNS.items()}
+    patterns = {
+        lang: list(items) for lang, items in _get_default_suspicious_patterns().items()
+    }
+    config_patterns = scan_config.get("suspicious_patterns")
+    if isinstance(config_patterns, dict):
+        for lang, lang_patterns in config_patterns.items():
+            if not isinstance(lang_patterns, list):
+                continue
+            parsed = []
+            for p in lang_patterns:
+                if isinstance(p, dict) and "pattern" in p and "message" in p:
+                    parsed.append((str(p["pattern"]), str(p["message"])))
+                elif isinstance(p, (list, tuple)) and len(p) >= 2:
+                    parsed.append((str(p[0]), str(p[1])))
+            if parsed:
+                patterns.setdefault(lang, []).extend(parsed)
     for lang, lang_patterns in extra_patterns.items():
         patterns.setdefault(lang, []).extend(lang_patterns)
+
+    ext_map = None
+    config_ext_map = scan_config.get("language_extensions")
+    if isinstance(config_ext_map, dict):
+        ext_map = {k: list(v) for k, v in config_ext_map.items()}
 
     blocking: list[str] = []
     warnings: list[str] = []
     suggestions: list[str] = []
     for f in filtered_files:
-        analysis = analyze_file(f, patterns=patterns)
+        analysis = analyze_file(f, patterns=patterns, ext_map=ext_map)
         warnings.extend(analysis.get("warnings", []))
         suggestions.extend(analysis.get("suggestions", []))
     return {"blocking": blocking, "warnings": warnings, "suggestions": suggestions}

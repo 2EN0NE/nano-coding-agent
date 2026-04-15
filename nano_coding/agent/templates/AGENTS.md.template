@@ -31,7 +31,7 @@
 在代码提交前运行 Semgrep 规则与正则审计模式，识别：
 - 安全漏洞（如敏感信息泄露、危险的动态执行）
 - 审计警告（如空 catch 块、硬编码凭据、过长的函数）
-扫描规则可通过 `.nano-coding-agent/config.json` 进行项目级扩展。
+扫描规则可通过 `.nano-coding-agent/config.yaml` 进行项目级扩展。
 
 ### 3. `update` — 原则同步
 将 `.nano-coding-agent/principles/` 下的原则块自动合并到 `AGENTS.md`。通过语义相似度去重，并依据技能实现与 CI/CD 集成情况，自动为实践条目打上 `[suggest]`、`[support]` 或 `[control]` 标签。保证原则文档始终反映最新的工程实践。
@@ -72,12 +72,12 @@
 
 ## 自定义与扩展
 
-编辑 `.nano-coding-agent/config.json` 可以调整：
+编辑 `.nano-coding-agent/config.yaml` 可以调整：
 - `validate` 的忽略目录与最大行数限制
 - `scan` 启用的审计工具与自定义规则路径
 - 其他项目级偏好设置
 
-配置采用**三级合并**：项目配置 > 用户目录配置（`~/.nano-coding-agent/config.json`）> 内置默认值。
+配置采用**三级合并**：项目配置 > 用户目录配置（`~/.nano-coding-agent/config.yaml`）> 内置默认值。
 
 ---
 

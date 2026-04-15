@@ -83,7 +83,7 @@ def _run_check_changes(target_path: Path) -> bool:
             "BACKGROUND.md",
             ".nano-coding-agent/AGENTS.md",
             ".nano-coding-agent/principles/core.md",
-            ".nano-coding-agent/config.json",
+            ".nano-coding-agent/config.yaml",
         ]
     else:
         monitored = [

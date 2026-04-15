@@ -40,7 +40,7 @@ def test_install_creates_full_agent_structure(tmp_path: Path) -> None:
     assert (agent_dir / "hooks").is_dir()
     assert (agent_dir / "principles").is_dir()
     assert (agent_dir / "version").exists()
-    assert (agent_dir / "config.json").exists()
+    assert (agent_dir / "config.yaml").exists()
     assert (agent_dir / "AGENTS.md").exists()
     assert (agent_dir / "principles" / "core.md").exists()
     assert (agent_dir / "hooks" / "pre-commit").exists()

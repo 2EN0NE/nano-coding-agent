@@ -14,6 +14,12 @@ uv venv
 uv pip install -e .
 ```
 
+## 运行测试
+
+```bash
+pytest -v
+```
+
 ## 初始化项目
 
 ### `uv run nano-coding install <project>`

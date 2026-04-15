@@ -196,6 +196,12 @@ def validate(
     if isinstance(validate_config.get("ignore_dirs"), list):
         exclude_dirs.update(validate_config["ignore_dirs"])
 
+    file_extensions = set(FILE_EXTENSIONS)
+    if isinstance(validate_config.get("file_extensions"), list):
+        file_extensions = set(validate_config["file_extensions"])
+
+    lock_files = set(validate_config.get("lock_files", []))
+
     engine = build_validation_engine(
         max_lines=max_lines, exclude_dirs=exclude_dirs, config=config
     )
@@ -354,7 +360,13 @@ def update(target: str) -> None:
     click.echo(f"Merged {len(all_blocks)} principle blocks into {target_file}")
 
 
-def _discover_source_files(root: Path) -> list[str]:
+def _discover_source_files(
+    root: Path,
+    exclude_dirs: set[str] | None = None,
+    file_extensions: set[str] | None = None,
+) -> list[str]:
+    exclude_dirs = exclude_dirs or EXCLUDE_DIRS
+    file_extensions = file_extensions or FILE_EXTENSIONS
     files: list[str] = []
     for path in root.rglob("*"):
         if not path.is_file():
@@ -363,9 +375,9 @@ def _discover_source_files(root: Path) -> list[str]:
             relative = path.relative_to(root)
         except ValueError:
             continue
-        if any(part in EXCLUDE_DIRS for part in relative.parts):
+        if any(part in exclude_dirs for part in relative.parts):
             continue
-        if path.suffix not in FILE_EXTENSIONS:
+        if path.suffix not in file_extensions:
             continue
         files.append(str(relative))
     return files
@@ -451,7 +463,11 @@ def scan(path: str, level: str, interactive: bool, staged: bool) -> None:
 
     try:
         config = config_loader.resolve_config(root)
-        engine = build_validation_engine(exclude_dirs=set(EXCLUDE_DIRS), config=config)
+        validate_cfg = config.get("validate", {})
+        scan_exclude_dirs = set(EXCLUDE_DIRS)
+        if isinstance(validate_cfg.get("ignore_dirs"), list):
+            scan_exclude_dirs.update(validate_cfg["ignore_dirs"])
+        engine = build_validation_engine(exclude_dirs=scan_exclude_dirs, config=config)
         check_results = engine.run_all(root, llm=False)
 
         blocking: list[str] = []
@@ -470,10 +486,22 @@ def scan(path: str, level: str, interactive: bool, staged: bool) -> None:
         warnings.extend(security.get("warnings", []))
         suggestions: list[str] = list(security.get("suggestions", []))
 
+        validate_cfg = config.get("validate", {})
+        scan_exclude_dirs = set(EXCLUDE_DIRS)
+        if isinstance(validate_cfg.get("ignore_dirs"), list):
+            scan_exclude_dirs.update(validate_cfg["ignore_dirs"])
+        scan_file_extensions = set(FILE_EXTENSIONS)
+        if isinstance(validate_cfg.get("file_extensions"), list):
+            scan_file_extensions = set(validate_cfg["file_extensions"])
+
         if staged:
             audit_files = get_staged_files()
         else:
-            audit_files = _discover_source_files(root)
+            audit_files = _discover_source_files(
+                root,
+                exclude_dirs=scan_exclude_dirs,
+                file_extensions=scan_file_extensions,
+            )
         audit = run_audit_scan(files=audit_files, level=level)
         blocking.extend(audit.get("blocking", []))
         warnings.extend(audit.get("warnings", []))
@@ -512,7 +540,7 @@ def confirm_principles(path: str, yes: bool) -> None:
             "AGENTS.md",
             "AGENTS_ABORT.md",
             "BANNED-AGENT-BEHAVIORS.md",
-            ".nano-coding-agent/config.json",
+            ".nano-coding-agent/config.yaml",
         ],
     )
 
