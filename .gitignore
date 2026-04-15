@@ -227,3 +227,4 @@ __marimo__/
 .nano-coding-agent/
 
 .nano-coding-agent/pi/node_modules/
+nano_coding/agent/templates/pi/node_modules/
