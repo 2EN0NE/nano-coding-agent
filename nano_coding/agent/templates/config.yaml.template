@@ -64,33 +64,35 @@ scan:
   # 审计正则模式（可通过 scan.rules 加载外部 JSON 扩展）
   suspicious_patterns:
     python:
-      - pattern: r"print\s*\("
+      - pattern: 'print\s*\('
         message: "Print statement found - consider using logging"
-      - pattern: r"#.*TODO\b"
+      - pattern: '#.*TODO\b'
         message: "TODO comment found"
-      - pattern: r"#.*FIXME\b"
+      - pattern: '#.*FIXME\b'
         message: "FIXME comment found"
-      - pattern: r"except:\s*\n\s*pass"
+      - pattern: 'except:\s*\n\s*pass'
         message: "Bare except clause with pass"
-      - pattern: r"os\.environ\.get\(['\"](API_KEY|SECRET|PASSWORD|TOKEN)"
+      - pattern: |-
+          os\.environ\.get\(['"](API_KEY|SECRET|PASSWORD|TOKEN)
         message: "Potential secret in environment access"
     javascript:
-      - pattern: r"console\.log\s*\("
+      - pattern: 'console\.log\s*\('
         message: "Console.log found"
-      - pattern: r"TODO\b"
+      - pattern: 'TODO\b'
         message: "TODO comment found"
-      - pattern: r"FIXME\b"
+      - pattern: 'FIXME\b'
         message: "FIXME comment found"
     typescript:
-      - pattern: r"console\.log\s*\("
+      - pattern: 'console\.log\s*\('
         message: "Console.log found"
-      - pattern: r"TODO\b"
+      - pattern: 'TODO\b'
         message: "TODO comment found"
-      - pattern: r"FIXME\b"
+      - pattern: 'FIXME\b'
         message: "FIXME comment found"
-      - pattern: r"@ts-ignore"
+      - pattern: '@ts-ignore'
         message: "ts-ignore found - may hide type errors"
-      - pattern: r"as\s+any\s*(\"|')"
+      - pattern: |-
+          as\s+any\s*(\"|')
         message: "Type assertion to 'any' - loses type safety"
 
 # === 校验配置 (validate 技能) ===
@@ -142,16 +144,16 @@ validate:
 
   # 测试命令正则模式（用于检查文档中是否说明了测试命令）
   test_command_patterns:
-    - r"pytest\s+[-\w]"
-    - r"npm\s+test"
-    - r"yarn\s+test"
-    - r"pnpm\s+test"
-    - r"cargo\s+test"
-    - r"go\s+test"
-    - r"mvn\s+test"
-    - r"gradle\s+test"
-    - r"dotnet\s+test"
-    - r"python\s+-m\s+(pytest|unittest)"
+    - 'pytest\s+[-\w]'
+    - 'npm\s+test'
+    - 'yarn\s+test'
+    - 'pnpm\s+test'
+    - 'cargo\s+test'
+    - 'go\s+test'
+    - 'mvn\s+test'
+    - 'gradle\s+test'
+    - 'dotnet\s+test'
+    - 'python\s+-m\s+(pytest|unittest)'
 
   # BACKGROUND.md 推荐包含的关键词
   background_keywords:
@@ -186,37 +188,37 @@ validate:
       Pipfile.lock: pipenv
     bad_patterns:
       npm:
-        - r"\bpnpm\s+install\b"
-        - r"\byarn\s+install\b"
-        - r"\byarn\s+add\b"
+        - '\bpnpm\s+install\b'
+        - '\byarn\s+install\b'
+        - '\byarn\s+add\b'
       pnpm:
-        - r"\bnpm\s+install\b"
-        - r"\byarn\s+install\b"
-        - r"\byarn\s+add\b"
-        - r"\bnpm\s+ci\b"
+        - '\bnpm\s+install\b'
+        - '\byarn\s+install\b'
+        - '\byarn\s+add\b'
+        - '\bnpm\s+ci\b'
       yarn:
-        - r"\bnpm\s+install\b"
-        - r"\bpnpm\s+install\b"
-        - r"\bnpm\s+ci\b"
+        - '\bnpm\s+install\b'
+        - '\bpnpm\s+install\b'
+        - '\bnpm\s+ci\b'
       cargo:
-        - r"\bnpm\s+install\b"
-        - r"\byarn\s+install\b"
-        - r"\bpnpm\s+install\b"
-        - r"\bpip\s+install\b"
-        - r"\bpoetry\s+install\b"
-        - r"\bpipenv\s+install\b"
+        - '\bnpm\s+install\b'
+        - '\byarn\s+install\b'
+        - '\bpnpm\s+install\b'
+        - '\bpip\s+install\b'
+        - '\bpoetry\s+install\b'
+        - '\bpipenv\s+install\b'
       poetry:
-        - r"\bpip\s+install\b"
-        - r"\bpipenv\s+install\b"
-        - r"\bnpm\s+install\b"
-        - r"\byarn\s+install\b"
-        - r"\bpnpm\s+install\b"
+        - '\bpip\s+install\b'
+        - '\bpipenv\s+install\b'
+        - '\bnpm\s+install\b'
+        - '\byarn\s+install\b'
+        - '\bpnpm\s+install\b'
       pipenv:
-        - r"\bpip\s+install\b"
-        - r"\bpoetry\s+install\b"
-        - r"\bnpm\s+install\b"
-        - r"\byarn\s+install\b"
-        - r"\bpnpm\s+install\b"
+        - '\bpip\s+install\b'
+        - '\bpoetry\s+install\b'
+        - '\bnpm\s+install\b'
+        - '\byarn\s+install\b'
+        - '\bpnpm\s+install\b'
 
   # 各校验规则的阈值与开关
   checks:
