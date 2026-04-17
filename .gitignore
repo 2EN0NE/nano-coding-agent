@@ -1,3 +1,5 @@
+CLAUDE.md
+
 # Legacy template exceptions removed during refactor
 /.copier/
 /.copier-answers.yml.tmpl
