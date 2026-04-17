@@ -1,4 +1,4 @@
-"""Unit tests for guardian.core.validator."""
+"""Unit tests for nano_coding.core.validator."""
 
 import os
 import stat

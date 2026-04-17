@@ -3,7 +3,7 @@
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-echo "Running guardian pre-commit..."
+echo "Running nano_coding pre-commit..."
 cd "$PROJECT_ROOT"
 
 python3 -m nano_coding.cli guard scan --path .

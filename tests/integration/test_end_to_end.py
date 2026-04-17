@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 class TestEndToEnd(unittest.TestCase):
-    def test_full_guardian_workflow(self) -> None:
+    def test_full_nano_coding_workflow(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
 
