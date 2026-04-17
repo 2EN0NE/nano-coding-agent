@@ -8,7 +8,8 @@ import unittest.mock as mock
 from pathlib import Path
 
 from click.testing import CliRunner
-from nano_coding.skills.guard import confirm_principles, install, update, validate
+
+from nano_coding.skills.guard import confirm_principles, install, merge, update, validate
 
 
 class TestCliInstall(unittest.TestCase):
@@ -100,6 +101,34 @@ class TestCliValidate(unittest.TestCase):
                 ],
             )
             self.assertEqual(result.exit_code, 0, msg=result.output)
+
+
+class TestCliMerge(unittest.TestCase):
+    def test_merge_idempotency(self) -> None:
+        runner = CliRunner()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            principles_file = root / "principles.md"
+            target_file = root / "AGENTS.md"
+
+            principles_file.write_text("### Principle A\nBody A\n")
+            target_file.write_text(
+                "# Agents\n\n## 基础原则\n### Principle A\nOld Body\n"
+            )
+
+            result1 = runner.invoke(
+                merge, ["--principles", str(principles_file), "--target", str(target_file)]
+            )
+            self.assertEqual(result1.exit_code, 0)
+            first_result = target_file.read_text()
+
+            result2 = runner.invoke(
+                merge, ["--principles", str(principles_file), "--target", str(target_file)]
+            )
+            self.assertEqual(result2.exit_code, 0)
+            second_result = target_file.read_text()
+
+            self.assertEqual(first_result, second_result)
 
 
 class TestCliUpdate(unittest.TestCase):

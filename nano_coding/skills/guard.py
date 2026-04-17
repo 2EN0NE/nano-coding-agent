@@ -30,17 +30,20 @@ from nano_coding.core.validator import (
 from nano_coding.core.check_engine import Issue
 
 
-@click.command()
+cli = click.Group()
+
+
+@cli.command()
+@register_practice(
+    principle='行为边界与"防呆"原则 (Guardrails & Boundaries)',
+    practices={"禁止操作": ["install"]},
+)
 @click.argument("target_dir")
 @click.option(
     "--yes",
     "-y",
     is_flag=True,
     help="Skip interactive prompts and use defaults.",
-)
-@register_practice(
-    principle='行为边界与"防呆"原则 (Guardrails & Boundaries)',
-    practices={"禁止操作": ["install"]},
 )
 def install(target_dir: str, yes: bool) -> None:
     """将pre-commit钩子和基础principles/目录安装到Git仓库中。
@@ -53,7 +56,23 @@ def install(target_dir: str, yes: bool) -> None:
     install_agent(target_dir, interactive=not yes)
 
 
-@click.command()
+@cli.command()
+@register_practice(
+    principle='行为边界与"防呆"原则 (Guardrails & Boundaries)',
+    practices={"禁止操作": ["validate", "validate --check-agents-abort"]},
+)
+@register_practice(
+    principle="项目背景文档 (BACKGROUND.md)",
+    practices={"创建 BACKGROUND.md": ["validate", "validate --check-background"]},
+)
+@register_practice(
+    principle="测试先行原则（TDD First）",
+    practices={"区分测试类型": ["validate", "validate --check-test-separation"]},
+)
+@register_practice(
+    principle="测试先行原则（TDD First）",
+    practices={"具体的工具链": ["validate", "validate --check-test-commands"]},
+)
 @click.argument("target_dir")
 @click.option(
     "--check-agents-abort",
@@ -135,22 +154,6 @@ def install(target_dir: str, yes: bool) -> None:
     "-i",
     is_flag=True,
     help="Display results in an interactive pager (less-style).",
-)
-@register_practice(
-    principle='行为边界与"防呆"原则 (Guardrails & Boundaries)',
-    practices={"禁止操作": ["validate", "validate --check-agents-abort"]},
-)
-@register_practice(
-    principle="项目背景文档 (BACKGROUND.md)",
-    practices={"创建 BACKGROUND.md": ["validate", "validate --check-background"]},
-)
-@register_practice(
-    principle="测试先行原则（TDD First）",
-    practices={"区分测试类型": ["validate", "validate --check-test-separation"]},
-)
-@register_practice(
-    principle="测试先行原则（TDD First）",
-    practices={"具体的工具链": ["validate", "validate --check-test-commands"]},
 )
 def validate(
     target_dir: str,
@@ -290,12 +293,12 @@ def validate(
     sys.exit(0 if result["success"] else 1)
 
 
-@click.command()
-@click.argument("target", default="AGENTS.md", required=False)
+@cli.command()
 @register_practice(
     principle="最重要原则：核心指导原则需要由人类审核",
     practices={"共性个性区分": ["update"]},
 )
+@click.argument("target", default="AGENTS.md", required=False)
 def update(target: str) -> None:
     """将principles/目录下的原则块合并到AGENTS.md中，通过语义相似度去重。
 
@@ -358,6 +361,45 @@ def update(target: str) -> None:
 
     target_file.write_text(result.merged_doc, encoding="utf-8")
     click.echo(f"Merged {len(all_blocks)} principle blocks into {target_file}")
+
+
+@cli.command()
+@register_practice(
+    principle="最重要原则：核心指导原则需要由人类审核",
+    practices={"共性个性区分": ["merge"]},
+)
+@click.option("--principles", required=True, help="Path to principles markdown file")
+@click.option("--target", required=True, help="Path to target AGENTS.md")
+def merge(principles: str, target: str) -> None:
+    """将源markdown文件中的原则块合并到现有的AGENTS.md中，通过语义相似度去重。
+
+    Examples:
+
+        $ nano-coding guard merge --principles principles/core.md --target AGENTS.md
+    """
+    principles_file = Path(principles)
+    target_file = Path(target)
+
+    if not principles_file.exists():
+        click.echo(f"[ERROR] Principles file not found: {principles}")
+        sys.exit(1)
+    if not target_file.exists():
+        click.echo(f"[ERROR] Target file not found: {target}")
+        sys.exit(1)
+
+    principles_content = principles_file.read_text(encoding="utf-8")
+    target_content = target_file.read_text(encoding="utf-8")
+
+    incoming_blocks = extractPrincipleBlocks(principles_content)
+    target_dir = target_file.parent
+    incoming_blocks = resolve_principle_tags(
+        incoming_blocks,
+        str(target_dir) if target_dir.exists() else None,
+    )
+    merged = mergePrinciplesIntoDocument(target_content, incoming_blocks)
+
+    target_file.write_text(merged.merged_doc, encoding="utf-8")
+    click.echo(f"Merged {len(incoming_blocks)} principle blocks into {target}")
 
 
 def _discover_source_files(
@@ -463,7 +505,11 @@ def _build_unified_report(
     return "\n".join(lines)
 
 
-@click.command()
+@cli.command()
+@register_practice(
+    principle='行为边界与"防呆"原则 (Guardrails & Boundaries)',
+    practices={"安全防线": ["scan"]},
+)
 @click.option(
     "--path", default=".", help="Directory to scan (default: current directory)"
 )
@@ -478,10 +524,6 @@ def _build_unified_report(
     "--staged",
     is_flag=True,
     help="Limit scan to staged files only.",
-)
-@register_practice(
-    principle='行为边界与"防呆"原则 (Guardrails & Boundaries)',
-    practices={"安全防线": ["scan"]},
 )
 def scan(path: str, level: str, interactive: bool, staged: bool) -> None:
     """对项目运行安全和审计扫描。报告阻塞性问题、警告和建议。
@@ -555,7 +597,7 @@ def scan(path: str, level: str, interactive: bool, staged: bool) -> None:
         os.chdir(original_dir)
 
 
-@click.command(name="confirm-principles")
+@cli.command(name="confirm-principles")
 @click.option("--path", default=".", help="Project path (default: current directory)")
 @click.option(
     "--yes", "-y", is_flag=True, help="Skip interactive prompt and auto-confirm."
@@ -617,6 +659,3 @@ def confirm_principles(path: str, yes: bool) -> None:
         sys.exit(1)
 
     sys.exit(0)
-
-
-commands = [install, validate, update, scan, confirm_principles]

@@ -329,3 +329,52 @@ CLI 在解析配置时，会先从当前工作目录向上遍历到 Git 根目�
 4. 运行 `nano-coding --help` 自动可见
 
 对于本地 Python skill，可选的入口文件名为 `__init__.py`、`main.py` 或 `cli.py`。`entrypoint` 字段格式为 `module.path:function_name`，其中 `module.path` 是相对于 skill 目录的模块路径。
+
+---
+
+## 工程架构与设计背景
+
+### 核心理念
+
+`nano_coding` 是一个 Python CLI 包，其核心理念是**把 `AGENTS.md` 从一份静态文档转化为一份活跃契约**。它不只是供人阅读的规则说明，而是通过治理检查、自动合并、Agent 执行等手段，让规则真正影响代码行为。
+
+### 技能自动发现机制
+
+根 CLI（`nano_coding/cli.py`）不做手动命令注册，而是通过 `pkgutil.iter_modules()` 在运行时扫描 `nano_coding/skills/` 目录。只要某个模块暴露了一个顶层的 `cli` 变量且类型为 `click.Group`，它就会被自动挂载到根 CLI 下（模块名中的下划线会替换为连字符）。因此，添加一个新的命令组只需要新建一个文件即可，无需修改入口代码。
+
+根 CLI 还使用了自定义的 `RecursiveHelpGroup`，能够递归输出嵌套命令组的帮助信息，包括每个子命令的短描述和选项列表。
+
+### 原则标签与合并系统
+
+`nano_coding/core/principles.py` 负责把原则区块（如 `principles/core.md`）合并到 `AGENTS.md` 中。合并过程如下：
+
+1. 从源 Markdown 中提取 `###` 级别的原则块。
+2. 基于 256 维 bigram 向量余弦相似度（标题权重更高）对已有区块去重。
+3. 把合并结果包裹在 `<!-- NANO_CODING_GENERATED_START -->` / `<!-- NANO_CODING_GENERATED_END -->` 标记之间。
+
+`nano_coding/core/registry.py` 维护了一个由 `@register_practice` 装饰器填充的全局注册表。当执行 `guard merge` 时，`resolve_principle_tags()` 会结合注册表和目标项目的 Git hooks，为每个原则打上标签：`[suggest]`、`[support]`、`[support some]`、`[control]` 或 `[control some]`，以表明该原则在当前项目中受命令和 hook 约束的强弱程度。
+
+### 验证与扫描
+
+`nano_coding/core/validator.py` 强制执行项目规则：
+- 项目根目录必须存在 `AGENTS.md` 且包含 `## 基础原则` 章节；
+- 禁止在根目录出现特定目录；
+- 源码文件不得超过 1000 行；
+- 必须存在测试目录或测试文件。
+
+`nano_coding/core/scanner.py` 通过 Semgrep 和基于正则的启发式审计扫描，对暂存区或指定文件进行安全扫描。
+
+### pi.dev Agent 内核集成
+
+工程现在内嵌了一个基于 pi.dev 的 Agent 运行时，位于 `nano_coding/ai_core/`（安装到目标项目后映射为 `.nano-coding-agent/ai-core/`）。
+
+- **ai_core** 是一个 TypeScript/Node.js 包，封装了 `@mariozechner/pi-agent-core`。
+- 运行时通过读取 `.nano-coding-agent/agent.yaml` 获取模型配置和 API Key（默认读取 `KIMI_API_KEY`）。
+- 它注册了 4 个自定义工具：`guard_validate`（治理校验）、`guard_scan`（安全扫描）、`knowledge_learn`（记录知识）、`knowledge_query`（查询知识）。
+- 项目知识以 Markdown 文件形式持久化在 `.nano-coding-agent/knowledge/{sessions,decisions,patterns}/` 下。
+
+这意味着：当你运行 `nano-coding agent run "..."` 或触发 Git hook 时，真正执行智能推理的是项目本地安装的 pi.dev Agent，而不是外部 AI 编程工具（如 Claude 或 OpenCode）本身。
+
+### 迁移背景
+
+本项目早期曾使用 `guardian` 作为包名，后整体迁移为 `nano_coding`。所有测试文件和 hook 模板中的旧引用已更新完毕。运行时代码**严禁依赖开发包**，运行时依赖严格限定为 `click` 和 `pyyaml` 两个库。

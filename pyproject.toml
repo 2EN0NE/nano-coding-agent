@@ -37,7 +37,7 @@ where = ["."]
 include = ["nano_coding*"]
 
 [tool.setuptools.package-data]
-nano_coding = ["*.yaml", "agent/**/*.md", "agent/**/*.template", "agent/**/*.yaml"]
+nano_coding = ["*.yaml", "agent/**/*.md", "agent/**/*.template", "agent/**/*.yaml", "ai_core/**/*"]
 
 # Runtime code must not depend on dev packages.
 [project.optional-dependencies]
