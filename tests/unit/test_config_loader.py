@@ -3,8 +3,6 @@
 import json
 from pathlib import Path
 
-import pytest
-
 from nano_coding.core.config_loader import (
     get_default_config,
     load_config,

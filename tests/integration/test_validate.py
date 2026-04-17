@@ -1,6 +1,5 @@
 """Integration tests for validate command with new suggest checks."""
 
-import os
 import stat
 import tempfile
 from pathlib import Path

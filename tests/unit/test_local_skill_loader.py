@@ -3,7 +3,6 @@ import tempfile
 from pathlib import Path
 
 import click
-import pytest
 
 from nano_coding.core.local_skill_loader import (
     discover_local_skills,

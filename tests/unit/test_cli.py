@@ -25,7 +25,8 @@ class TestCliInstall(unittest.TestCase):
             git_dir = root / ".git"
             git_dir.mkdir()
 
-            result = runner.invoke(install, [str(root)])
+            with mock.patch("nano_coding.core.installer._install_pi_runtime"):
+                result = runner.invoke(install, [str(root)])
             self.assertEqual(result.exit_code, 0)
 
             dest_hook = git_dir / "hooks" / "pre-commit"

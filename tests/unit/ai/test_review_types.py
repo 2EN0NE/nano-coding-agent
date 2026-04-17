@@ -1,16 +1,12 @@
-import pytest
-
 from nano_coding.core.ai.review_types import (
     Severity,
-    ReviewIssue,
-    ReviewResult,
     parse_llm_response,
     severity_from_string,
 )
 
 
 def test_parse_llm_response_standard_json_code_block():
-    raw = '''```json
+    raw = """```json
 {
   "summary": "Looks good overall.",
   "issues": [
@@ -22,7 +18,7 @@ def test_parse_llm_response_standard_json_code_block():
     }
   ]
 }
-```'''
+```"""
     result = parse_llm_response("code_review", raw)
     assert result.review_type == "code_review"
     assert result.summary == "Looks good overall."
@@ -36,7 +32,7 @@ def test_parse_llm_response_standard_json_code_block():
 
 
 def test_parse_llm_response_no_language_tag_code_block():
-    raw = '''```
+    raw = """```
 {
   "summary": "No lang tag.",
   "issues": [
@@ -48,7 +44,7 @@ def test_parse_llm_response_no_language_tag_code_block():
     }
   ]
 }
-```'''
+```"""
     result = parse_llm_response("security_review", raw)
     assert result.review_type == "security_review"
     assert result.summary == "No lang tag."
@@ -83,7 +79,7 @@ def test_parse_llm_response_unparseable_text_fallback():
 
 
 def test_parse_llm_response_mixed_case_severity():
-    raw = '''```json
+    raw = """```json
 {
   "summary": "Mixed case severities.",
   "issues": [
@@ -93,7 +89,7 @@ def test_parse_llm_response_mixed_case_severity():
     {"severity": "unknown", "title": "T4"}
   ]
 }
-```'''
+```"""
     result = parse_llm_response("case_review", raw)
     assert result.summary == "Mixed case severities."
     assert len(result.issues) == 4

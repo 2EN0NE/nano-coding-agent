@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import shutil
 import stat
 import subprocess
@@ -89,13 +90,18 @@ def _check_node_installed() -> bool:
 
 
 def _install_pi_runtime(target: Path) -> None:
+    pi_dir = target / ".nano-coding-agent" / "pi"
+    if (
+        pi_dir / "node_modules" / "@mariozechner" / "pi-coding-agent" / "package.json"
+    ).exists() or (pi_dir / "node_modules" / ".package-lock.json").exists():
+        return
+
     if not _check_node_installed():
         click.echo(
             "[ERROR] Node.js is required for AI review features. Please install Node.js 20+ from https://nodejs.org/"
         )
         return
 
-    pi_dir = target / ".nano-coding-agent" / "pi"
     pi_dir.mkdir(parents=True, exist_ok=True)
 
     pkg_json = pi_dir / "package.json"
@@ -122,21 +128,39 @@ def _install_pi_runtime(target: Path) -> None:
         except Exception:
             pass
 
-    try:
-        subprocess.run(
-            ["npm", "install", "--prefix", str(pi_dir)],
-            capture_output=True,
-            text=True,
-            timeout=300,
-            check=True,
-        )
-    except subprocess.CalledProcessError as e:
-        err = (e.stderr or e.stdout or "unknown error").strip()
-        click.echo(f"[WARN] Failed to install pi runtime dependencies: {err}")
-    except subprocess.TimeoutExpired:
-        click.echo("[WARN] npm install timed out after 300s")
-    except Exception as e:
-        click.echo(f"[WARN] Failed to install pi runtime dependencies: {e}")
+    needs_npm_install = True
+    template_node_modules = _read_agent_path("templates/pi") / "node_modules"
+    target_node_modules = pi_dir / "node_modules"
+    if template_node_modules.exists() and not target_node_modules.exists():
+        try:
+            os.symlink(str(template_node_modules), str(target_node_modules))
+        except OSError:
+            shutil.copytree(str(template_node_modules), str(target_node_modules))
+        if (
+            pi_dir
+            / "node_modules"
+            / "@mariozechner"
+            / "pi-coding-agent"
+            / "package.json"
+        ).exists() or (pi_dir / "node_modules" / ".package-lock.json").exists():
+            needs_npm_install = False
+
+    if needs_npm_install:
+        try:
+            subprocess.run(
+                ["npm", "install", "--prefix", str(pi_dir)],
+                capture_output=True,
+                text=True,
+                timeout=300,
+                check=True,
+            )
+        except subprocess.CalledProcessError as e:
+            err = (e.stderr or e.stdout or "unknown error").strip()
+            click.echo(f"[WARN] Failed to install pi runtime dependencies: {err}")
+        except subprocess.TimeoutExpired:
+            click.echo("[WARN] npm install timed out after 300s")
+        except Exception as e:
+            click.echo(f"[WARN] Failed to install pi runtime dependencies: {e}")
 
     gitignore = target / ".gitignore"
     ignore_line = ".nano-coding-agent/pi/node_modules/"

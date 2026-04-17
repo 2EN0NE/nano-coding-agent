@@ -1,7 +1,5 @@
 """Unit tests for new suggest checks (Tasks 4-10) and CheckEngine-based checks."""
 
-import os
-import stat
 import subprocess
 import tempfile
 import unittest
@@ -21,7 +19,6 @@ from nano_coding.core.validator import (
     CheckSubdirAgents,
     CheckSubdirAgentsOverflow,
     ProtectedDocsCheck,
-    build_validation_engine,
 )
 
 

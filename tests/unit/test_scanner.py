@@ -1,18 +1,14 @@
 import json
 import os
-import subprocess
 import tempfile
 import unittest
-from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 from nano_coding.core.scanner import (
     get_rules_for_type,
-    run_semgrep,
     filter_blocking,
     detect_language,
     analyze_file,
-    get_staged_files,
     run_security_scan,
     run_audit_scan,
 )

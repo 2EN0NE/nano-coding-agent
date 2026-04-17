@@ -1,4 +1,3 @@
-import math
 import unittest
 from unittest.mock import patch
 
@@ -9,7 +8,6 @@ from nano_coding.core.principles import (
     extractPrincipleBlocksFromDocument,
     hasDuplicate,
     mergePrinciplesIntoDocument,
-    MergeResult,
     normalizeTitle,
     parseDocument,
     PrincipleBlock,
@@ -256,7 +254,6 @@ class TestMergePrinciplesIntoDocument(unittest.TestCase):
         incoming = [PrincipleBlock(title="New Block", body="New body")]
         merged = mergePrinciplesIntoDocument(doc, incoming)
         lines = merged.merged_doc.split("\n")
-        start_idx = lines.index("<!-- NANO_CODING_GENERATED_START -->")
         end_idx = lines.index("<!-- NANO_CODING_GENERATED_END -->")
         existing_header_idx = lines.index("# Project")
         self.assertLess(end_idx, existing_header_idx)
