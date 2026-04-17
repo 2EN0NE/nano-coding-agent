@@ -14,11 +14,12 @@ export function createKnowledgeTools(projectRoot: string): AgentTool[] {
       content: Type.String(),
     }),
     async execute(_toolCallId, params): Promise<AgentToolResult<{ filepath: string }>> {
+      const { title, category, content } = params as { title: string; category: string; content: string };
       const timestamp = new Date().toISOString();
       const filepath = writeKnowledge(projectRoot, {
-        title: params.title as string,
-        category: params.category as KnowledgeCategory,
-        content: params.content as string,
+        title,
+        category: category as KnowledgeCategory,
+        content,
         timestamp,
       });
       return {
@@ -36,7 +37,8 @@ export function createKnowledgeTools(projectRoot: string): AgentTool[] {
       category: Type.String({ enum: ["session", "decision", "pattern"] }),
     }),
     async execute(_toolCallId, params): Promise<AgentToolResult<{ count: number }>> {
-      const content = readKnowledgeCategory(projectRoot, params.category as KnowledgeCategory);
+      const { category } = params as { category: string };
+      const content = readKnowledgeCategory(projectRoot, category as KnowledgeCategory);
       return {
         content: [{ type: "text", text: content || "No knowledge entries found." }],
         details: { count: content ? 1 : 0 },

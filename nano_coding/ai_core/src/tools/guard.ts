@@ -10,7 +10,8 @@ const validateTool: AgentTool = {
     path: Type.String({ description: "Project path to validate" }),
   }),
   async execute(_toolCallId, params): Promise<AgentToolResult<{ exitCode: number | null }>> {
-    const result = spawnSync("python3", ["-m", "nano_coding.cli", "guard", "validate", params.path as string], {
+    const { path } = params as { path: string };
+    const result = spawnSync("python3", ["-m", "nano_coding.cli", "guard", "validate", path], {
       encoding: "utf-8",
     });
     return {
@@ -25,12 +26,12 @@ const scanTool: AgentTool = {
   label: "Scan project security",
   description: "Run nano-coding guard scan on the project",
   parameters: Type.Object({
-    path: Type.String(),
+    path: Type.String({ description: "Project path to scan" }),
     level: Type.Optional(Type.String({ default: "standard" })),
   }),
   async execute(_toolCallId, params): Promise<AgentToolResult<{ exitCode: number | null }>> {
-    const args = ["-m", "nano_coding.cli", "guard", "scan", "--path", params.path as string];
-    const level = (params as { level?: string }).level;
+    const { path, level } = params as { path: string; level?: string };
+    const args = ["-m", "nano_coding.cli", "guard", "scan", "--path", path];
     if (level) {
       args.push("--level", level);
     }
@@ -42,6 +43,6 @@ const scanTool: AgentTool = {
   },
 };
 
-export function createGovernanceTools(_projectRoot: string): AgentTool[] {
+export function createGovernanceTools(): AgentTool[] {
   return [validateTool, scanTool];
 }
