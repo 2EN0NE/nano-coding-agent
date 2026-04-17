@@ -5,9 +5,17 @@ copier.yml
 /docs/agents-scaffold-specific.md
 /PROGRESS.md
 /package.json
+/package-lock.json
 
 /.sisyphus/
 /LICENSE
+
+# Node.js
+node_modules/
+nano_coding/ai_core/node_modules/
+
+# uv lock (optional for libraries)
+uv.lock
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
