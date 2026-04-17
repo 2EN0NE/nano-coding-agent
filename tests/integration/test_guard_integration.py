@@ -19,7 +19,7 @@ from pathlib import Path
 
 from click.testing import CliRunner
 
-from nano_coding.skills.guard import install, scan, update, validate
+from nano_coding.skills.guard import install, merge, scan, update, validate
 
 TESTED_COMMANDS = [
     ("install",),
@@ -29,6 +29,7 @@ TESTED_COMMANDS = [
     ("validate", "validate --check-test-commands"),
     ("validate", "validate --check-test-separation"),
     ("update",),
+    ("merge",),
     ("scan",),
 ]
 
@@ -186,6 +187,54 @@ def test_install_to_temp_git_repo() -> None:
         assert (principles_dir / "core.md").exists(), (
             ".nano-coding-agent/principles/core.md should be copied"
         )
+
+
+def test_merge_on_temp_agents_md() -> None:
+    runner = CliRunner()
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        target_file = tmp_path / "AGENTS.md"
+        target_file.write_text("# Test Project\n\n## 基础原则\n- Test principle\n")
+
+        principles_file = tmp_path / "principles.md"
+        principles_file.write_text("### Principle A\nBody A\n")
+
+        result = runner.invoke(
+            merge, ["--principles", str(principles_file), "--target", str(target_file)]
+        )
+
+        assert result.exit_code == 0, f"Merge failed. Output:\n{result.output}"
+
+        content = target_file.read_text()
+        assert "NANO_CODING_GENERATED_START" in content
+        assert "NANO_CODING_GENERATED_END" in content
+
+
+def test_merge_idempotency_on_temp_file() -> None:
+    runner = CliRunner()
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        target_file = tmp_path / "AGENTS.md"
+        target_file.write_text("# Test\n\n## 基础原则\n")
+
+        principles_file = tmp_path / "principles.md"
+        principles_file.write_text("### Principle A\nBody A\n")
+
+        result1 = runner.invoke(
+            merge, ["--principles", str(principles_file), "--target", str(target_file)]
+        )
+        assert result1.exit_code == 0
+        content1 = target_file.read_text()
+
+        result2 = runner.invoke(
+            merge, ["--principles", str(principles_file), "--target", str(target_file)]
+        )
+        assert result2.exit_code == 0
+        content2 = target_file.read_text()
+
+        assert content1 == content2
 
 
 def test_install_to_non_git_directory_fails() -> None:

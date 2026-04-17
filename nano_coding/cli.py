@@ -9,7 +9,7 @@ from nano_coding.core.local_skill_loader import discover_local_skills, load_pyth
 from nano_coding.core.project_discovery import find_nearest_agent_dir
 from nano_coding.core.version_checker import check_version
 from nano_coding.skills import ai_review as ai_review_skill
-from nano_coding.skills.guard import commands as guard_commands
+from nano_coding.skills.guard import cli as guard_cli, commands as guard_commands
 from nano_coding.skills.principle_review import cli as principle_review_cli
 
 
@@ -93,7 +93,7 @@ def _make_markdown_skill_command(name: str, body: str) -> click.Command:
 def _register_skills() -> None:
     _BUILTIN_SKILLS = {
         "ai-review": ai_review_skill.ai_review,
-        "guard": guard_commands,
+        "guard": guard_cli,
         "principle-review": principle_review_cli,
     }
 
@@ -111,6 +111,11 @@ def _register_skills() -> None:
                 if isinstance(c, click.Command):
                     cli.add_command(c)
 
+    # Also register guard commands at top level for backward compatibility
+    for c in guard_commands:
+        if isinstance(c, click.Command) and c.name not in cli.commands:
+            cli.add_command(c)
+
     agent_dir = find_nearest_agent_dir(Path(os.getcwd()))
     if agent_dir is not None:
         check_version(agent_dir)
@@ -126,7 +131,14 @@ def _register_skills() -> None:
                 loaded_cmd = load_python_skill(skill_dir, entrypoint)
 
             if loaded_cmd is None:
-                if skill_name in cli.commands:
+                existing = cli.commands.get(skill_name)
+                # Skip overriding leaf Commands to avoid accidental regressions.
+                # Allow markdown skills to override the guard group specifically,
+                # but preserve other groups (like principle-review) that may have
+                # local configuration without entrypoints.
+                if existing is not None and not isinstance(existing, click.Group):
+                    continue
+                if existing is not None and isinstance(existing, click.Group) and skill_name != "guard":
                     continue
                 body = metadata.get("body", "")
                 loaded_cmd = _make_markdown_skill_command(skill_name, body)

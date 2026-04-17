@@ -659,3 +659,6 @@ def confirm_principles(path: str, yes: bool) -> None:
         sys.exit(1)
 
     sys.exit(0)
+
+
+commands = [install, validate, update, merge, scan, confirm_principles]
