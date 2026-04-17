@@ -4,23 +4,27 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from click.testing import CliRunner
+
 from nano_coding.skills.guard import install, merge, validate
 
 
 class TestCliInstall(unittest.TestCase):
     def test_install_non_git_fails(self) -> None:
+        runner = CliRunner()
         with tempfile.TemporaryDirectory() as tmp:
-            with self.assertRaises(SystemExit) as ctx:
-                install(tmp)
-            self.assertEqual(ctx.exception.code, 1)
+            result = runner.invoke(install, [tmp])
+            self.assertEqual(result.exit_code, 1)
 
     def test_install_git_directory_copies_hook_and_principles(self) -> None:
+        runner = CliRunner()
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             git_dir = root / ".git"
             git_dir.mkdir()
 
-            install(str(root))
+            result = runner.invoke(install, [str(root)])
+            self.assertEqual(result.exit_code, 0)
 
             dest_hook = git_dir / "hooks" / "pre-commit"
             self.assertTrue(dest_hook.exists())
@@ -32,6 +36,7 @@ class TestCliInstall(unittest.TestCase):
 
 class TestCliValidate(unittest.TestCase):
     def test_validate_success_exits_0(self) -> None:
+        runner = CliRunner()
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / "AGENTS.md").write_text("# Project\n\n## 基础原则\nSome rules.\n")
@@ -42,21 +47,21 @@ class TestCliValidate(unittest.TestCase):
             (root / "tests").mkdir()
             (root / "tests" / "dummy.py").write_text("pass\n")
 
-            with self.assertRaises(SystemExit) as ctx:
-                validate(str(root))
-            self.assertEqual(ctx.exception.code, 0)
+            result = runner.invoke(validate, [str(root)])
+            self.assertEqual(result.exit_code, 0)
 
     def test_validate_blocking_exits_1(self) -> None:
+        runner = CliRunner()
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
 
-            with self.assertRaises(SystemExit) as ctx:
-                validate(str(root))
-            self.assertEqual(ctx.exception.code, 1)
+            result = runner.invoke(validate, [str(root)])
+            self.assertEqual(result.exit_code, 1)
 
 
 class TestCliMerge(unittest.TestCase):
     def test_merge_idempotency(self) -> None:
+        runner = CliRunner()
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             principles_file = root / "principles.md"
@@ -67,10 +72,16 @@ class TestCliMerge(unittest.TestCase):
                 "# Agents\n\n## 基础原则\n## Principle A\nOld Body\n"
             )
 
-            merge(str(principles_file), str(target_file))
+            result1 = runner.invoke(
+                merge, ["--principles", str(principles_file), "--target", str(target_file)]
+            )
+            self.assertEqual(result1.exit_code, 0)
             first_result = target_file.read_text()
 
-            merge(str(principles_file), str(target_file))
+            result2 = runner.invoke(
+                merge, ["--principles", str(principles_file), "--target", str(target_file)]
+            )
+            self.assertEqual(result2.exit_code, 0)
             second_result = target_file.read_text()
 
             self.assertEqual(first_result, second_result)

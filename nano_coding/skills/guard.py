@@ -25,11 +25,11 @@ def cli() -> None:
     pass
 
 
+@cli.command()
 @register_practice(
     principle='行为边界与"防呆"原则 (Guardrails & Boundaries)',
     practices={"禁止操作": ["guard", "install"]},
 )
-@cli.command()
 @click.argument("target_dir")
 def install(target_dir: str) -> None:
     """将pre-commit钩子和基础principles/目录安装到Git仓库中。
@@ -41,6 +41,7 @@ def install(target_dir: str) -> None:
     install_hooks_and_principles(target_dir)
 
 
+@cli.command()
 @register_practice(
     principle='行为边界与"防呆"原则 (Guardrails & Boundaries)',
     practices={"禁止操作": ["guard", "validate"]},
@@ -49,7 +50,6 @@ def install(target_dir: str) -> None:
     principle="测试先行原则（TDD First）",
     practices={"区分测试类型": ["guard", "validate"]},
 )
-@cli.command()
 @click.argument("target_dir")
 def validate(target_dir: str) -> None:
     """验证项目是否满足基础治理规则。
@@ -66,11 +66,11 @@ def validate(target_dir: str) -> None:
     sys.exit(0 if result["success"] else 1)
 
 
+@cli.command()
 @register_practice(
     principle="最重要原则：核心指导原则需要由人类审核",
     practices={"共性个性区分": ["guard", "merge"]},
 )
-@cli.command()
 @click.option("--principles", required=True, help="Path to principles markdown file")
 @click.option("--target", required=True, help="Path to target AGENTS.md")
 def merge(principles: str, target: str) -> None:
@@ -105,11 +105,11 @@ def merge(principles: str, target: str) -> None:
     click.echo(f"Merged {len(incoming_blocks)} principle blocks into {target}")
 
 
+@cli.command()
 @register_practice(
     principle='行为边界与"防呆"原则 (Guardrails & Boundaries)',
     practices={"安全防线": ["guard", "scan"]},
 )
-@cli.command()
 @click.option(
     "--path", default=".", help="Directory to scan (default: current directory)"
 )
