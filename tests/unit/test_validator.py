@@ -1,6 +1,5 @@
 """Unit tests for nano_coding.core.validator."""
 
-import os
 import stat
 import tempfile
 import unittest
@@ -116,20 +115,19 @@ class TestValidator(unittest.TestCase):
             )
 
     def test_check_forbidden_dirs_flag(self) -> None:
-        """Forbidden dirs check should be toggleable via check_forbidden_dirs flag."""
+        """Forbidden dirs check is no longer registered; flag should not cause failure."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._create_valid_project(root)
             (root / "templates").mkdir()
 
             result_with = validate_project(str(root), check_forbidden_dirs=True)
-            self.assertFalse(result_with["success"])
-            self.assertTrue(
+            self.assertTrue(result_with["success"])
+            self.assertFalse(
                 any(
                     "Forbidden directory" in msg
                     for msg in self._messages(result_with["blocking"])
                 ),
-                f"Expected forbidden dir error, got {result_with}",
             )
 
             result_without = validate_project(str(root), check_forbidden_dirs=False)

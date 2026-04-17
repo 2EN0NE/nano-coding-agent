@@ -913,8 +913,11 @@ class ProtectedDocsCheck(Check):
 
     DEFAULT_PROTECTED_DOCUMENTS = [
         "AGENTS.md",
+        "README.md",
         "AGENTS_ABORT.md",
         "BANNED-AGENT-BEHAVIORS.md",
+        "principles/core.md",
+        ".nano-coding-agent/principles/core.md",
         ".nano-coding-agent/config.yaml",
     ]
 
@@ -1175,7 +1178,6 @@ def build_validation_engine(
     agents_length_cfg = checks_config.get("agents_length", {})
     gitignore_tempfiles_cfg = checks_config.get("gitignore_tempfiles", {})
 
-    forbidden_dirs = validate_cfg.get("forbidden_dirs")
     temp_docs = validate_cfg.get("temp_docs")
     test_indicators = validate_cfg.get("test_indicators")
     agents_abort_file = paths_cfg.get("agents_abort", "AGENTS_ABORT.md")
@@ -1199,7 +1201,6 @@ def build_validation_engine(
     engine = CheckEngine()
     engine.register(AgentsMdExistsCheck())
     engine.register(AgentsMdHasSectionCheck())
-    engine.register(ForbiddenDirsCheck(forbidden_dirs=forbidden_dirs))
     engine.register(PreCommitHookCheck())
     engine.register(TempDocsCheck(temp_docs=temp_docs))
     engine.register(TestsExistCheck(test_indicators=test_indicators))

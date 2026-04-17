@@ -228,3 +228,6 @@ __marimo__/
 
 .nano-coding-agent/pi/node_modules/
 nano_coding/agent/templates/pi/node_modules/
+
+# Claude Code worktrees
+.claude/

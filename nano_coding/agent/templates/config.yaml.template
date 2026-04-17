@@ -137,10 +137,13 @@ validate:
     - yarn.lock
     - pnpm-lock.yaml
 
-  # 禁止出现在项目根目录的目录名
-  forbidden_dirs:
-    - templates
-    - scripts
+  # 受保护的核心原则文档（变更需人工确认）
+  protected_documents:
+    - AGENTS.md
+    - README.md
+    - principles/core.md
+    - .nano-coding-agent/principles/core.md
+    - .nano-coding-agent/config.yaml
 
   # 测试命令正则模式（用于检查文档中是否说明了测试命令）
   test_command_patterns:

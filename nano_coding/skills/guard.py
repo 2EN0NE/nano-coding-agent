@@ -367,6 +367,42 @@ def _discover_source_files(
 ) -> list[str]:
     exclude_dirs = exclude_dirs or EXCLUDE_DIRS
     file_extensions = file_extensions or FILE_EXTENSIONS
+
+    if (root / ".git").is_dir():
+        try:
+            result = subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(root),
+                    "ls-files",
+                    "--cached",
+                    "--others",
+                    "--exclude-standard",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if result.returncode == 0:
+                files: list[str] = []
+                for line in result.stdout.strip().split("\n"):
+                    line = line.strip()
+                    if not line:
+                        continue
+                    path = root / line
+                    if not path.is_file():
+                        continue
+                    relative = Path(line)
+                    if any(part in exclude_dirs for part in relative.parts):
+                        continue
+                    if relative.suffix not in file_extensions:
+                        continue
+                    files.append(str(relative))
+                return files
+        except Exception:
+            pass
+
     files: list[str] = []
     for path in root.rglob("*"):
         if not path.is_file():
