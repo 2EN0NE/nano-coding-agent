@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from guardian.cli import install, merge, validate
+from nano_coding.skills.guard import install, merge, validate
 
 
 class TestCliInstall(unittest.TestCase):

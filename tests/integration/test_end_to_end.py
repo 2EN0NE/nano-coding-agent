@@ -26,7 +26,7 @@ class TestEndToEnd(unittest.TestCase):
             )
 
             install_result = subprocess.run(
-                ["python3", "-m", "guardian.cli", "install", str(root)],
+                ["python3", "-m", "nano_coding.cli", "guard", "install", str(root)],
                 capture_output=True,
                 text=True,
             )
@@ -47,7 +47,7 @@ class TestEndToEnd(unittest.TestCase):
             self.assertIn(hook_result.returncode, [0, 1])
 
             validate_result = subprocess.run(
-                ["python3", "-m", "guardian.cli", "validate", str(root)],
+                ["python3", "-m", "nano_coding.cli", "guard", "validate", str(root)],
                 capture_output=True,
                 text=True,
             )
@@ -64,7 +64,8 @@ class TestEndToEnd(unittest.TestCase):
                 [
                     "python3",
                     "-m",
-                    "guardian.cli",
+                    "nano_coding.cli",
+                    "guard",
                     "merge",
                     "--principles",
                     str(principles),
@@ -77,7 +78,7 @@ class TestEndToEnd(unittest.TestCase):
             self.assertEqual(merge_result.returncode, 0, msg=merge_result.stderr)
 
             scan_result = subprocess.run(
-                ["python3", "-m", "guardian.cli", "scan", "--path", str(root)],
+                ["python3", "-m", "nano_coding.cli", "guard", "scan", "--path", str(root)],
                 capture_output=True,
                 text=True,
             )

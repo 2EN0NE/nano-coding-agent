@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
-from guardian.core.scanner import (
+from nano_coding.core.scanner import (
     get_rules_for_type,
     run_semgrep,
     filter_blocking,
@@ -77,7 +77,7 @@ class TestScannerHelpers(unittest.TestCase):
 
 
 class TestRunSecurityScan(unittest.TestCase):
-    @patch("guardian.core.scanner.subprocess.run")
+    @patch("nano_coding.core.scanner.subprocess.run")
     def test_run_security_scan_success(self, mock_run):
         mock_output = json.dumps({
             "results": [
@@ -92,7 +92,7 @@ class TestRunSecurityScan(unittest.TestCase):
         self.assertEqual(result["warnings"], [])
         self.assertEqual(result["suggestions"], [])
 
-    @patch("guardian.core.scanner.subprocess.run")
+    @patch("nano_coding.core.scanner.subprocess.run")
     def test_run_security_scan_missing_semgrep(self, mock_run):
         mock_run.side_effect = FileNotFoundError("semgrep not found")
         result = run_security_scan("python")
@@ -115,7 +115,7 @@ class TestRunAuditScan(unittest.TestCase):
         finally:
             os.unlink(name)
 
-    @patch("guardian.core.scanner.get_staged_files")
+    @patch("nano_coding.core.scanner.get_staged_files")
     def test_run_audit_scan_fallback_to_staged(self, mock_staged):
         with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
             f.write("# TODO\n")

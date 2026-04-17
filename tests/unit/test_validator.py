@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from guardian.core.validator import validate_project
+from nano_coding.core.validator import validate_project
 
 
 class TestValidator(unittest.TestCase):
